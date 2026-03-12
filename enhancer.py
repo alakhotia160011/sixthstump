@@ -131,7 +131,8 @@ Respond in the same format:
         return EnhancedCommentary(text=text, emotion=emotion)
 
     # Key overs that deserve an extended summary segment
-    MILESTONE_OVERS = {6, 10, 15}
+    # Over numbers are 0-indexed: 0.x = first over, 5.x = sixth over (end of powerplay)
+    MILESTONE_OVERS = {5, 9, 14}
 
     async def generate_score_update(self, over_number: int, match_context: str, current_player_stats: str = "") -> EnhancedCommentary:
         """Generate a quick score update after an over ends — score, batsmen, run rate."""

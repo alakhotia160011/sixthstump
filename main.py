@@ -7,6 +7,7 @@ from scraper import CricketScraper
 from enhancer import CommentaryEnhancer
 from tts import CommentaryTTS
 from player import AudioPlayer
+from tracker import ReplayStatTracker
 from config import POLL_INTERVAL
 
 
@@ -37,6 +38,9 @@ async def run(match_url: str, replay: bool = False):
         print(f"[main] replay mode — commentating on {len(entries)} entries")
         print(f"[main] match: {match_context}\n")
 
+        # Ball-by-ball stat tracker — avoids using end-of-match API stats
+        tracker = ReplayStatTracker()
+
         # Generate and play match introduction
         if match_intro:
             print("[main] generating match intro...")
@@ -54,6 +58,7 @@ async def run(match_url: str, replay: bool = False):
         recent_balls: list[str] = []
         summaries_done: set[int] = set()
         current_innings = 1
+        tracker.set_innings(current_innings)
         ball_count = 0  # total balls processed, for filler pacing
 
         for entry in entries:
@@ -70,7 +75,9 @@ async def run(match_url: str, replay: bool = False):
                     # Innings break: over number drops significantly
                     if cur_int < prev_int - 2:
                         print("[main] === INNINGS BREAK ===")
-                        break_result = await enhancer.generate_innings_break(match_context)
+                        # Use tracker's accumulated context for the break summary
+                        tracker_context = tracker.get_match_context()
+                        break_result = await enhancer.generate_innings_break(tracker_context or match_context)
                         if break_result.text:
                             print(f"[break] ({break_result.emotion}) {break_result.text}")
                             try:
@@ -82,16 +89,20 @@ async def run(match_url: str, replay: bool = False):
                         recent_balls.clear()
                         summaries_done.clear()
                         current_innings += 1
+                        tracker.set_innings(current_innings)
                         ball_count = 0
 
                     # Over change — always give a score update
+                    # Display over = raw + 1 (0.x = over 1, 5.x = over 6)
                     elif prev_int != cur_int:
+                        display_over = prev_int + 1
                         # Milestone overs get an extended summary
                         if prev_int in enhancer.MILESTONE_OVERS and prev_int not in summaries_done:
                             summaries_done.add(prev_int)
-                            print(f"[main] --- over {prev_int} summary ---")
-                            player_stats = scraper.get_player_stats(current_innings)
-                            summary = await enhancer.generate_over_summary(prev_int, match_context, recent_balls, player_stats)
+                            print(f"[main] --- over {display_over} summary ---")
+                            player_stats = tracker.get_player_stats(current_innings)
+                            tracker_context = tracker.get_match_context()
+                            summary = await enhancer.generate_over_summary(display_over, tracker_context or match_context, recent_balls, player_stats)
                             if summary.text:
                                 print(f"[summary] ({summary.emotion}) {summary.text}")
                                 try:
@@ -102,8 +113,9 @@ async def run(match_url: str, replay: bool = False):
                                 print()
                         else:
                             # Regular over change — quick score + batsmen update
-                            current_stats = scraper.get_current_player_stats(entry.text, current_innings)
-                            score_update = await enhancer.generate_score_update(prev_int, match_context, current_stats)
+                            current_stats = tracker.get_current_player_stats(entry.text, current_innings)
+                            tracker_context = tracker.get_match_context()
+                            score_update = await enhancer.generate_score_update(display_over, tracker_context or match_context, current_stats)
                             if score_update.text:
                                 print(f"[score] ({score_update.emotion}) {score_update.text}")
                                 try:
@@ -117,9 +129,14 @@ async def run(match_url: str, replay: bool = False):
             prev_over = entry.over
             ball_count += 1
 
+            # Track stats BEFORE generating commentary (so filler has up-to-date stats)
+            tracker.process_ball(entry.over, entry.text)
+
             print(f"[ball {entry.over}] {entry.text}")
 
-            result = await enhancer.enhance(entry.text, match_context, over=entry.over)
+            # Use tracker context so we don't leak future match info
+            live_context = tracker.get_match_context() or match_context
+            result = await enhancer.enhance(entry.text, live_context, over=entry.over)
             print(f"[commentary] ({result.emotion}) {result.text}")
 
             try:
@@ -134,8 +151,9 @@ async def run(match_url: str, replay: bool = False):
 
             # Filler every 3 balls — stats, insight, or tactical observation
             if ball_count % 3 == 0:
-                current_stats = scraper.get_current_player_stats(entry.text, current_innings)
-                filler = await enhancer.generate_filler(match_context, recent_balls, current_stats)
+                current_stats = tracker.get_current_player_stats(entry.text, current_innings)
+                tracker_context = tracker.get_match_context()
+                filler = await enhancer.generate_filler(tracker_context or match_context, recent_balls, current_stats)
                 if filler.text:
                     print(f"[filler] ({filler.emotion}) {filler.text}")
                     try:
