@@ -117,6 +117,7 @@ async def _queue_segments(sync_queue: asyncio.Queue, segments, tag: str, **extra
             msg.pop("ballData", None)
             msg.pop("scorecard", None)
             msg.pop("overStats", None)
+            msg.pop("ballIndex", None)
         await sync_queue.put((msg, seg.text, seg.emotion, seg.speaker))
 
 
@@ -174,7 +175,7 @@ def _build_over_stats(tracker: ReplayStatTracker, innings_number: int) -> dict:
 
 
 async def run_replay(ws: WebSocket, scraper: CricketScraper, enhancer: CommentaryEnhancer,
-                     tts: CommentaryTTS, stop_event: asyncio.Event):
+                     tts: CommentaryTTS, stop_event: asyncio.Event, resume_from: int = 0):
     """Replay mode: commentate an entire match ball-by-ball."""
     await send_msg(ws, {"type": "status", "text": "Loading match data..."})
 
@@ -213,19 +214,56 @@ async def run_replay(ws: WebSocket, scraper: CricketScraper, enhancer: Commentar
     # Sync worker - sends text + audio together in order
     sync_queue, sync_task = create_sync_worker(ws, tts, stop_event)
 
-    # Match intro
-    if match_intro:
-        intro_segments = await enhancer.generate_intro(match_intro)
-        await _queue_segments(sync_queue, intro_segments, "intro")
-
     prev_over = None
     recent_balls: list[str] = []
     summaries_done: set[int] = set()
     current_innings = 1
     tracker.set_innings(current_innings)
     ball_count = 0
+    total_ball_index = 0  # absolute position across all entries
 
-    for entry in entries:
+    # Fast-forward: process tracker for stats but skip commentary/TTS
+    if resume_from > 0:
+        await send_msg(ws, {"type": "status", "text": f"Resuming from ball {resume_from}..."})
+        for entry in entries[:resume_from]:
+            cur_over_num = entry.over.split(".")[0] if "." in entry.over else entry.over
+            if prev_over is not None:
+                prev_over_num = prev_over.split(".")[0] if "." in prev_over else prev_over
+                try:
+                    prev_int = int(prev_over_num)
+                    cur_int = int(cur_over_num)
+                    if cur_int < prev_int - 2:
+                        recent_balls.clear()
+                        summaries_done.clear()
+                        current_innings += 1
+                        tracker.set_innings(current_innings)
+                        ball_count = 0
+                    elif prev_int != cur_int:
+                        if prev_int in enhancer.MILESTONE_OVERS:
+                            summaries_done.add(prev_int)
+                except ValueError:
+                    pass
+            prev_over = entry.over
+            ball_count += 1
+            tracker.process_entry(entry)
+            recent_balls.append(f"[{entry.over}] {entry.text[:80]}")
+            if len(recent_balls) > 12:
+                recent_balls.pop(0)
+        total_ball_index = resume_from
+        # Send current scorecard so the UI is up to date
+        scorecard = _build_scorecard(tracker)
+        if scorecard:
+            await send_msg(ws, {"type": "scorecard", "innings": scorecard})
+        await send_msg(ws, {"type": "status", "text": f"Resumed - continuing from ball {resume_from}/{len(entries)}"})
+    else:
+        # Match intro only on fresh start
+        if match_intro:
+            intro_segments = await enhancer.generate_intro(match_intro)
+            await _queue_segments(sync_queue, intro_segments, "intro")
+
+    remaining_entries = entries[resume_from:] if resume_from > 0 else entries
+
+    for entry in remaining_entries:
         if stop_event.is_set():
             break
 
@@ -266,6 +304,7 @@ async def run_replay(ws: WebSocket, scraper: CricketScraper, enhancer: Commentar
 
         prev_over = entry.over
         ball_count += 1
+        total_ball_index += 1
         tracker.process_entry(entry)
 
         # Ball commentary - text + audio sent together by worker
@@ -288,7 +327,8 @@ async def run_replay(ws: WebSocket, scraper: CricketScraper, enhancer: Commentar
         segments = await enhancer.enhance(entry.text, live_context, over=entry.over,
                                           player_stats=current_stats, ball_data=ball_data)
         await _queue_segments(sync_queue, segments, "ball", over=entry.over,
-                              ballData=ball_data, scorecard=scorecard)
+                              ballData=ball_data, scorecard=scorecard,
+                              ballIndex=total_ball_index)
 
         recent_balls.append(f"[{entry.over}] {entry.text[:80]}")
         if len(recent_balls) > 12:
@@ -519,6 +559,7 @@ async def commentary_ws(websocket: WebSocket):
 
         match_url = data.get("url", "")
         mode = data.get("mode", "replay")
+        resume_from = int(data.get("resumeFrom", 0))
 
         if not match_url:
             await send_msg(websocket, {"type": "error", "text": "No match URL provided"})
@@ -563,7 +604,7 @@ async def commentary_ws(websocket: WebSocket):
             await scraper.start()
 
             if mode == "replay":
-                await run_replay(websocket, scraper, enhancer, tts, stop_event)
+                await run_replay(websocket, scraper, enhancer, tts, stop_event, resume_from=resume_from)
             else:
                 await run_live(websocket, scraper, enhancer, tts, stop_event)
         finally:

@@ -805,6 +805,28 @@
     line-height: 1.7;
     color: var(--text-mid);
   }
+  .about-section ul {
+    list-style: none;
+    padding: 0;
+    margin: 8px 0 0 0;
+  }
+  .about-section ul li {
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--text-mid);
+    padding: 4px 0 4px 20px;
+    position: relative;
+  }
+  .about-section ul li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 12px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--bright-green);
+  }
   .about-tech {
     display: flex;
     flex-wrap: wrap;
@@ -935,25 +957,32 @@
         <img class="about-photo" src="/static/aryamaan.png" alt="Aryamaan Lakhotia" onerror="this.style.display='none'">
         <div class="about-hero-text">
           <h2>Aryamaan Lakhotia</h2>
-          <p>Former President, Harvard Cricket Club. Trader in New York. Cricket obsessive.</p>
+          <p>Trader in New York. Former President, Harvard Cricket Club.</p>
         </div>
       </div>
 
       <div class="about-section">
         <h3>Why sixthstump?</h3>
-        <p>Cricket commentary is an art form. The way Harsha Bhogle builds a narrative, the way Nasser Hussain reads the game, the way Ian Bishop captures a moment - it turns a sport into a story. I wanted to see if AI could capture even a fraction of that magic.</p>
-        <p style="margin-top:10px">This started as a weekend experiment born from two things: a deep love for the game, and curiosity about where voice AI is headed. I wanted to explore how far text-to-speech has come, understand the APIs behind real-time sports data, and build something that actually feels like sitting down and watching cricket with great commentators.</p>
+        <p>Cricket commentary is an art form. The way Harsha Bhogle builds a narrative, the way Nasser Hussain reads the game, the way Ian Bishop captures a moment. It turns a sport into a story. I wanted to see if AI could capture even a fraction of that magic.</p>
+        <p style="margin-top:10px">This started as a weekend experiment born from two things: a deep love for the game, and curiosity about where voice AI is headed. I wanted to explore how far text to speech has come, understand the APIs behind real time sports data, and build something that actually feels like sitting down and watching cricket with great commentators.</p>
       </div>
 
       <div class="about-section">
         <h3>The backstory</h3>
-        <p>I ran the Harvard Cricket Club in college - organizing matches, recruiting players, and doing whatever it took to keep cricket alive on a campus that didn't always know what a silly mid-on was. That love for the game never went away. Now I work as a trader in New York, but cricket is still the thing I'll stay up until 4am for.</p>
-        <p style="margin-top:10px">sixthstump is what happens when you combine that obsession with a fascination for what AI can do with voice, emotion, and real-time data.</p>
+        <p>I ran the Harvard Cricket Club in college, organizing matches, recruiting players, and doing whatever it took to keep cricket alive on a campus that didn't always know what a silly mid on was. That love for the game never went away. Now I work as a trader in New York, but cricket is still the thing I'll stay up until 4am for.</p>
+        <p style="margin-top:10px">sixthstump is what happens when you combine that obsession with a fascination for what AI can do with voice, emotion, and real time data.</p>
       </div>
 
       <div class="about-section">
         <h3>How it works</h3>
-        <p>The app scrapes ball-by-ball commentary from ESPNcricinfo, feeds it through Claude to generate multi-voice commentary with emotion and context, then synthesizes speech using Cartesia's voice AI. Three distinct commentator voices - Harsha, Nasser, and Ian - take turns calling the action, offering analysis, and filling gaps between deliveries. All in real time.</p>
+        <ul>
+          <li><strong>ESPNcricinfo</strong> provides the raw ball by ball data, scraped in real time as each delivery happens</li>
+          <li><strong>Python / FastAPI</strong> powers the backend server, orchestrating the scraping, commentary generation, and audio streaming pipeline</li>
+          <li><strong>Claude API</strong> takes each delivery and generates multi voice commentary with emotion, context, and natural banter between commentators</li>
+          <li><strong>Cartesia TTS</strong> synthesizes speech with three distinct commentator voices (Harsha, Nasser, and Ian), each with unique tone and pacing</li>
+          <li><strong>WebSockets</strong> stream audio and text to the browser in real time so commentary plays in sync with the action</li>
+          <li><strong>Web Audio API</strong> handles playback on the client, queuing and decoding audio segments for seamless, gapless commentary</li>
+        </ul>
         <div class="about-tech">
           <span class="about-tech-tag">Python / FastAPI</span>
           <span class="about-tech-tag">Claude API</span>
@@ -1005,6 +1034,7 @@ let lastMatchSeries = '';
 let lastMatchTeams = null;
 let currentOverBalls = [];  // track balls in current over for recap
 let lastOverNum = null;     // track when over changes
+let ballsPlayed = 0;        // track replay position for resume
 let pendingCommentary = null; // holds text until audio arrives
 let activeAudioSources = []; // track playing/scheduled sources for stop
 let pendingTimers = []; // track setTimeout IDs so we can cancel on stop/back
@@ -1147,6 +1177,7 @@ function showCommentary(title, series, teams) {
   latestScore = '';
   currentOverBalls = [];
   lastOverNum = null;
+  ballsPlayed = 0;
 
   // Show scoreboard immediately with team names/logos
   const board = document.getElementById('scoreboard');
@@ -1422,11 +1453,12 @@ let pendingTimer = null;
 function handleMessage(msg) {
   switch (msg.type) {
     case 'commentary':
-      // Show previous pending commentary immediately
+      // Show previous pending commentary immediately (this also updates its scoreboard)
       if (pendingTimer) { clearTimeout(pendingTimer); pendingTimer = null; }
       if (pendingCommentary) showPendingNow();
-      // Update scoreboard if embedded in this message
-      if (msg.scorecard) updateScoreboard(msg.scorecard);
+      // Don't update scoreboard here - wait until entry is shown (in showPendingNow/playAudio)
+      // so the top score stays in sync with what's visible in the feed
+      if (msg.ballIndex !== undefined) ballsPlayed = msg.ballIndex;
       pendingCommentary = { tag: msg.tag || 'ball', text: msg.text, emotion: msg.emotion, over: msg.over, ballData: msg.ballData, score: latestScore, speaker: msg.speaker, scorecard: msg.scorecard, overStats: msg.overStats };
       // Safety: show text after 8s even if audio never arrives
       const sid = sessionId;
@@ -1477,7 +1509,9 @@ function resumeCommentary() {
   ws = new WebSocket(`${protocol}//${location.host}/ws`);
   ws.onopen = () => {
     setStatus('Commentary resumed', 'running');
-    ws.send(JSON.stringify({ action: 'start', url: lastMatchUrl, mode: lastMatchMode }));
+    const startMsg = { action: 'start', url: lastMatchUrl, mode: lastMatchMode };
+    if (lastMatchMode === 'replay' && ballsPlayed > 0) startMsg.resumeFrom = ballsPlayed;
+    ws.send(JSON.stringify(startMsg));
   };
   ws.onmessage = (event) => {
     try {
