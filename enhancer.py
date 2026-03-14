@@ -229,22 +229,31 @@ Respond in the same format:
         emotion, text = self._parse_response(raw_response)
         return EnhancedCommentary(text=text, emotion=emotion)
 
+    # Rotating filler topics — cycle through these to force variety
+    _FILLER_TOPICS = [
+        "Focus on the BATSMAN — their score, strike rate, how they're looking, what milestone is next.",
+        "Focus on the BOWLER — their figures, economy, dot balls, how they've been bowling this spell.",
+        "Talk about the PARTNERSHIP — how many runs, how they're rotating strike, the dynamic between the two batsmen.",
+        "Talk about the MATCH SITUATION — the session, the day, what each team needs from here, the tactical battle.",
+        "Make a TACTICAL observation — what field changes might come, what bowling change you'd make, where the pressure is.",
+        "Talk about a DIFFERENT player — not the current batsman or bowler, but someone else in the innings (a dismissed batsman, a bowler waiting for their next spell).",
+    ]
+
     async def generate_filler(self, match_context: str, recent_balls: list[str], player_stats: str = "") -> EnhancedCommentary:
         """Generate between-balls filler — a stat, anecdote, or tactical insight during quiet periods."""
         recent_text = "\n".join(f"- {b}" for b in recent_balls[-6:]) if recent_balls else ""
 
+        # Force a different topic each time by cycling through the list
+        topic_idx = len(self.recent_fillers) % len(self._FILLER_TOPICS)
+        forced_topic = self._FILLER_TOPICS[topic_idx]
+
         avoid_text = ""
         if self.recent_fillers:
-            avoid_text = f"\n\nYou already said these recently — do NOT repeat or paraphrase them, find a DIFFERENT angle:\n" + "\n".join(f"- \"{f}\"" for f in self.recent_fillers[-3:])
+            avoid_text = f"\n\nDo NOT repeat or paraphrase any of these — you already said them:\n" + "\n".join(f"- \"{f}\"" for f in self.recent_fillers[-3:])
 
-        prompt = f"""There's been a quiet spell in the match — a few dot balls or singles. Fill the air with something interesting. Pick ONE of these:
-- A player stat or milestone approaching ("He's on 42 now, just 8 away from his fifty... and at a strike rate of 180, it's been breathtaking")
-- A bowling analysis ("Look at those figures — 2 for 18 in 3 overs, that's been the difference")
-- A partnership breakdown ("This pair have put on 45 already, and they've rotated strike beautifully")
-- A tactical observation about field placement or bowling changes
-- A fall-of-wickets narrative ("They were cruising at 98 for 1, but two quick wickets have changed everything")
-- The match situation and what's at stake
-- A comparison or historical note about one of the players
+        prompt = f"""There's a pause in play. Fill the air with something interesting.
+
+YOUR TOPIC THIS TIME: {forced_topic}
 
 Match state:
 {match_context}
@@ -256,9 +265,9 @@ Recent deliveries:
 
 Rules:
 - 1-2 sentences ONLY. Quick, natural, conversational.
-- USE the player stats — reference specific numbers, strike rates, economy rates.
-- Harsha style: the stat is just the entry point, tell us what it MEANS.
-- Pick a DIFFERENT topic and angle each time. Don't lead with the same player or stat twice.
+- STICK TO THE ASSIGNED TOPIC. Do not talk about something else.
+- Reference specific numbers from the stats provided.
+- Harsha style: the stat is the entry point, tell us what it MEANS.
 - Write for SPEECH.
 
 Respond in the same format:
