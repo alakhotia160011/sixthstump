@@ -20,12 +20,17 @@ class CommentaryTTS:
 
     def synthesize(self, text: str, emotion: str = "neutral") -> bytes:
         """Convert text to raw PCM audio bytes (float32, 44100 Hz, mono)."""
+        # Ensure text ends with punctuation to prevent TTS repeating the last word
+        clean = text.strip()
+        if clean and clean[-1] not in ".!?":
+            clean += "."
+
         kwargs = dict(
             model_id="sonic-3",
-            transcript=text,
+            transcript=clean,
             voice={"mode": "id", "id": self.voice_id},
             output_format=self.output_format,
-            language="en",
+            language="hi",
         )
 
         # Add emotion, speed, and volume controls for sonic-3
@@ -39,21 +44,22 @@ class CommentaryTTS:
             return output
         return b"".join(output)
 
-    # Emotion profiles: speed + volume tuned per emotion for more dramatic effect
+    # Emotion profiles: speed + volume tuned per emotion for dramatic commentary
+    # Using "highest" intensity for high-energy moments, "high" for moderate
     EMOTION_PROFILES = {
-        "excited":       {"emotion": "excited",       "speed": 0.9,  "volume": 1.6},
-        "enthusiastic":  {"emotion": "enthusiastic",  "speed": 0.9,  "volume": 1.4},
-        "triumphant":    {"emotion": "triumphant",    "speed": 0.85, "volume": 1.7},
-        "amazed":        {"emotion": "amazed",        "speed": 0.9,  "volume": 1.5},
-        "surprised":     {"emotion": "surprised",     "speed": 0.9,  "volume": 1.5},
-        "calm":          {"emotion": "calm",          "speed": 0.75, "volume": 0.9},
-        "content":       {"emotion": "content",       "speed": 0.8,  "volume": 1.0},
-        "anticipation":  {"emotion": "anticipation",  "speed": 0.9,  "volume": 1.2},
-        "disappointed":  {"emotion": "disappointed",  "speed": 0.75, "volume": 0.85},
-        "proud":         {"emotion": "proud",         "speed": 0.85, "volume": 1.3},
-        "confident":     {"emotion": "confident",     "speed": 0.85, "volume": 1.2},
-        "contemplative": {"emotion": "contemplative", "speed": 0.75, "volume": 0.85},
-        "determined":    {"emotion": "determined",    "speed": 0.9,  "volume": 1.3},
+        "excited":       {"emotion": "excited:highest",       "speed": 1.0,  "volume": 1.8},
+        "enthusiastic":  {"emotion": "enthusiastic:highest",  "speed": 0.95, "volume": 1.6},
+        "triumphant":    {"emotion": "triumphant:highest",    "speed": 0.9,  "volume": 1.9},
+        "amazed":        {"emotion": "amazed:highest",        "speed": 0.95, "volume": 1.7},
+        "surprised":     {"emotion": "surprised:highest",     "speed": 0.95, "volume": 1.7},
+        "calm":          {"emotion": "calm:high",             "speed": 0.75, "volume": 0.9},
+        "content":       {"emotion": "content:high",          "speed": 0.8,  "volume": 1.0},
+        "anticipation":  {"emotion": "anticipation:highest",  "speed": 0.9,  "volume": 1.4},
+        "disappointed":  {"emotion": "disappointed:highest",  "speed": 0.7,  "volume": 0.8},
+        "proud":         {"emotion": "proud:highest",         "speed": 0.85, "volume": 1.5},
+        "confident":     {"emotion": "confident:high",        "speed": 0.85, "volume": 1.3},
+        "contemplative": {"emotion": "contemplative:high",    "speed": 0.7,  "volume": 0.85},
+        "determined":    {"emotion": "determined:highest",    "speed": 0.9,  "volume": 1.5},
     }
 
     def synthesize_to_wav(self, text: str) -> bytes:

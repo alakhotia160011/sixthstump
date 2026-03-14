@@ -17,6 +17,21 @@ class CommentaryEntry:
     over: str        # e.g. "15.3"
     text: str        # the raw commentary text
     entry_hash: str  # for deduplication
+    # Structured ball data from API (for accurate stat tracking)
+    batsman_runs: int = 0
+    total_runs: int = 0
+    is_four: bool = False
+    is_six: bool = False
+    is_wicket: bool = False
+    wides: int = 0
+    noballs: int = 0
+    legbyes: int = 0
+    byes: int = 0
+    batsman_id: int | None = None
+    bowler_id: int | None = None
+    batsman_name: str = ""
+    bowler_name: str = ""
+    innings_number: int = 1
 
 
 # Akamai EdgeAuth token generation for hs-consumer-api
@@ -40,6 +55,89 @@ def _generate_auth_token(url_path_with_query: str) -> str:
 
 
 _API_BASE = "https://hs-consumer-api.espncricinfo.com"
+
+
+async def fetch_matches() -> list[dict]:
+    """Fetch current matches (live, recent, upcoming) from ESPNcricinfo."""
+    async with httpx.AsyncClient(
+        http2=True,
+        headers={
+            "User-Agent": (
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/125.0.0.0 Safari/537.36"
+            ),
+            "Accept": "application/json",
+            "Origin": "https://www.espncricinfo.com",
+            "Referer": "https://www.espncricinfo.com/",
+        },
+        follow_redirects=True,
+        timeout=15,
+    ) as client:
+        path = "/v1/pages/matches/current?lang=en"
+        token = _generate_auth_token(path)
+        url = f"{_API_BASE}{path}"
+        try:
+            resp = await client.get(url, headers={"x-hsci-auth-token": token})
+            if resp.status_code != 200:
+                print(f"[scraper] matches API HTTP {resp.status_code}")
+                return []
+            data = resp.json()
+        except Exception as e:
+            print(f"[scraper] matches API error: {e}")
+            return []
+
+    raw_matches = data.get("matches", [])
+    results = []
+    for m in raw_matches:
+        state = m.get("state", "")
+        # Only include matches with ball-by-ball coverage (or upcoming)
+        if not m.get("hasCommentary") and state != "PRE":
+            continue
+
+        series = m.get("series", {})
+        ground = m.get("ground", {})
+        teams = m.get("teams", [])
+
+        team_list = []
+        for t in teams:
+            team = t.get("team", {})
+            team_list.append({
+                "name": team.get("longName") or team.get("name") or "?",
+                "abbreviation": team.get("abbreviation") or "",
+                "id": team.get("objectId", ""),
+                "score": t.get("score") or "",
+                "scoreInfo": t.get("scoreInfo") or "",
+            })
+
+        # Skip matches with club/minor teams (no logos available on CDN)
+        if any(not t.get("team", {}).get("objectId") or
+               int(t.get("team", {}).get("objectId", 0)) > 1000
+               for t in teams):
+            continue
+
+        # Build the match URL that CricketScraper can consume
+        series_slug = series.get("slug", "")
+        series_id = series.get("objectId", "")
+        match_slug = m.get("slug", "")
+        match_id = m.get("objectId", "")
+        match_url = f"https://www.espncricinfo.com/series/{series_slug}-{series_id}/{match_slug}-{match_id}/live-cricket-score"
+
+        results.append({
+            "matchId": match_id,
+            "seriesId": series_id,
+            "url": match_url,
+            "state": state,
+            "format": m.get("format", ""),
+            "title": m.get("title", ""),
+            "statusText": m.get("statusText", ""),
+            "series": series.get("longName") or series.get("name", ""),
+            "venue": ground.get("name", ""),
+            "teams": team_list,
+            "startTime": m.get("startTime", ""),
+        })
+
+    return results
 
 
 class CricketScraper:
@@ -566,7 +664,34 @@ class CricketScraper:
             if not text or len(text) < 5:
                 continue
 
+            # Extract bowler/batsman names from title "Bowler to Batsman"
+            bowler_name = ""
+            batsman_name = ""
+            if " to " in title:
+                parts = title.split(" to ")
+                if len(parts) == 2:
+                    bowler_name = parts[0].strip()
+                    batsman_name = parts[1].strip()
+
             entry_hash = hashlib.md5(f"{c.get('id', '')}:{over}".encode()).hexdigest()
-            entries.append(CommentaryEntry(over=over, text=text, entry_hash=entry_hash))
+            entries.append(CommentaryEntry(
+                over=over,
+                text=text,
+                entry_hash=entry_hash,
+                batsman_runs=c.get("batsmanRuns", 0) or 0,
+                total_runs=c.get("totalRuns", 0) or 0,
+                is_four=bool(c.get("isFour")),
+                is_six=bool(c.get("isSix")),
+                is_wicket=bool(c.get("isWicket")),
+                wides=c.get("wides", 0) or 0,
+                noballs=c.get("noballs", 0) or 0,
+                legbyes=c.get("legbyes", 0) or 0,
+                byes=c.get("byes", 0) or 0,
+                batsman_id=c.get("batsmanPlayerId"),
+                bowler_id=c.get("bowlerPlayerId"),
+                batsman_name=batsman_name,
+                bowler_name=bowler_name,
+                innings_number=c.get("inningNumber", 1),
+            ))
 
         return entries

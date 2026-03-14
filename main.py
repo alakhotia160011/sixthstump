@@ -33,10 +33,8 @@ async def run(match_url: str, replay: bool = False):
     if replay:
         # Replay mode: fetch ALL commentary across all innings
         entries = await scraper.get_all_entries()
-        match_context = await scraper.get_match_context()
         match_intro = await scraper.get_match_intro()
-        print(f"[main] replay mode — commentating on {len(entries)} entries")
-        print(f"[main] match: {match_context}\n")
+        print(f"[main] replay mode — commentating on {len(entries)} entries\n")
 
         # Ball-by-ball stat tracker — avoids using end-of-match API stats
         tracker = ReplayStatTracker()
@@ -44,7 +42,7 @@ async def run(match_url: str, replay: bool = False):
         # Generate and play match introduction
         if match_intro:
             print("[main] generating match intro...")
-            intro = await enhancer.generate_intro(match_intro, match_context)
+            intro = await enhancer.generate_intro(match_intro)
             if intro.text:
                 print(f"[intro] ({intro.emotion}) {intro.text}")
                 try:
@@ -77,7 +75,7 @@ async def run(match_url: str, replay: bool = False):
                         print("[main] === INNINGS BREAK ===")
                         # Use tracker's accumulated context for the break summary
                         tracker_context = tracker.get_match_context()
-                        break_result = await enhancer.generate_innings_break(tracker_context or match_context)
+                        break_result = await enhancer.generate_innings_break(tracker_context)
                         if break_result.text:
                             print(f"[break] ({break_result.emotion}) {break_result.text}")
                             try:
@@ -102,7 +100,7 @@ async def run(match_url: str, replay: bool = False):
                             print(f"[main] --- over {display_over} summary ---")
                             player_stats = tracker.get_player_stats(current_innings)
                             tracker_context = tracker.get_match_context()
-                            summary = await enhancer.generate_over_summary(display_over, tracker_context or match_context, recent_balls, player_stats)
+                            summary = await enhancer.generate_over_summary(display_over, tracker_context, recent_balls, player_stats)
                             if summary.text:
                                 print(f"[summary] ({summary.emotion}) {summary.text}")
                                 try:
@@ -115,7 +113,7 @@ async def run(match_url: str, replay: bool = False):
                             # Regular over change — quick score + batsmen update
                             current_stats = tracker.get_current_player_stats(entry.text, current_innings)
                             tracker_context = tracker.get_match_context()
-                            score_update = await enhancer.generate_score_update(display_over, tracker_context or match_context, current_stats)
+                            score_update = await enhancer.generate_score_update(display_over, tracker_context, current_stats)
                             if score_update.text:
                                 print(f"[score] ({score_update.emotion}) {score_update.text}")
                                 try:
@@ -130,12 +128,12 @@ async def run(match_url: str, replay: bool = False):
             ball_count += 1
 
             # Track stats BEFORE generating commentary (so filler has up-to-date stats)
-            tracker.process_ball(entry.over, entry.text)
+            tracker.process_entry(entry)
 
             print(f"[ball {entry.over}] {entry.text}")
 
             # Use tracker context so we don't leak future match info
-            live_context = tracker.get_match_context() or match_context
+            live_context = tracker.get_match_context()
             result = await enhancer.enhance(entry.text, live_context, over=entry.over)
             print(f"[commentary] ({result.emotion}) {result.text}")
 
@@ -153,7 +151,7 @@ async def run(match_url: str, replay: bool = False):
             if ball_count % 3 == 0:
                 current_stats = tracker.get_current_player_stats(entry.text, current_innings)
                 tracker_context = tracker.get_match_context()
-                filler = await enhancer.generate_filler(tracker_context or match_context, recent_balls, current_stats)
+                filler = await enhancer.generate_filler(tracker_context, recent_balls, current_stats)
                 if filler.text:
                     print(f"[filler] ({filler.emotion}) {filler.text}")
                     try:

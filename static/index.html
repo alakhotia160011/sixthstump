@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>sixthstump</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --dark-green: #0A8043;
+    --mid-green: #0D8F4F;
+    --bright-green: #4CB950;
+    --cream: #E2D1A3;
+    --tan: #E2B07E;
+    --white: #FFFFFF;
+    --bg: #F5F2EC;
+    --text-dark: #1A2B23;
+    --text-mid: #3D5A4A;
+    --text-light: #6B8577;
+    --border: #D6CEBB;
+    --card-bg: #FFFFFF;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text-dark);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Nav ── */
+  nav {
+    background: var(--dark-green);
+    padding: 0 clamp(16px, 4vw, 48px);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .nav-brand {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+  .nav-brand h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--cream);
+    letter-spacing: -0.5px;
+    cursor: pointer;
+  }
+  .nav-brand span {
+    font-size: 12px;
+    font-weight: 400;
+    color: rgba(226, 209, 163, 0.6);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .nav-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: rgba(226, 209, 163, 0.7);
+  }
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: rgba(226, 209, 163, 0.3);
+    flex-shrink: 0;
+  }
+  .status-dot.connected { background: var(--bright-green); }
+  .status-dot.running { background: var(--bright-green); animation: pulse 1.5s ease-in-out infinite; }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* ── Views ── */
+  .view { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+  .view.active { display: flex; }
+
+  /* ── Match Browser ── */
+  .browser-header {
+    background: var(--white);
+    border-bottom: 1px solid var(--border);
+    padding: clamp(20px, 3vw, 40px) clamp(16px, 4vw, 48px);
+  }
+  .browser-header-inner {
+    max-width: 960px;
+    margin: 0 auto;
+  }
+  .browser-header h2 {
+    font-size: clamp(22px, 3vw, 30px);
+    font-weight: 700;
+    color: var(--text-dark);
+    margin-bottom: 4px;
+    letter-spacing: -0.5px;
+  }
+  .browser-header p {
+    font-size: 14px;
+    color: var(--text-light);
+    margin-bottom: 20px;
+  }
+
+  /* Filters */
+  .filters {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .filter-btn {
+    padding: 7px 16px;
+    border: 1.5px solid var(--border);
+    border-radius: 20px;
+    background: var(--white);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-light);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .filter-btn:hover { border-color: var(--mid-green); color: var(--text-mid); }
+  .filter-btn.active {
+    background: var(--dark-green);
+    border-color: var(--dark-green);
+    color: var(--white);
+  }
+  .filter-search {
+    flex: 1;
+    min-width: 180px;
+    padding: 7px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 20px;
+    background: var(--white);
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--text-dark);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .filter-search:focus { border-color: var(--mid-green); }
+  .filter-search::placeholder { color: var(--text-light); }
+
+  /* Match list */
+  .match-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: clamp(16px, 3vw, 32px) clamp(16px, 4vw, 48px);
+  }
+  .match-list::-webkit-scrollbar { width: 5px; }
+  .match-list::-webkit-scrollbar-track { background: transparent; }
+  .match-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  .match-list-inner {
+    max-width: 960px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .match-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 22px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+  }
+  .match-card:hover {
+    border-color: var(--mid-green);
+    box-shadow: 0 2px 12px rgba(10, 128, 67, 0.08);
+    transform: translateY(-1px);
+  }
+
+  .match-info { flex: 1; min-width: 0; }
+
+  .match-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+  }
+  .match-badge {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+  .badge-live { background: #DCFCE7; color: var(--dark-green); }
+  .badge-post { background: rgba(226, 176, 126, 0.15); color: #B8862D; }
+  .badge-pre { background: rgba(107, 133, 119, 0.1); color: var(--text-light); }
+  .match-format {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-light);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .match-series {
+    font-size: 12px;
+    color: var(--text-light);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .match-teams {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-dark);
+    margin-bottom: 4px;
+    line-height: 1.4;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .match-teams .vs {
+    font-weight: 400;
+    color: var(--text-light);
+    font-size: 13px;
+    margin: 0 4px;
+  }
+
+  .match-scores {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+  }
+  .team-score {
+    font-size: 13px;
+    color: var(--text-mid);
+  }
+  .team-score strong {
+    font-weight: 600;
+    color: var(--text-dark);
+  }
+
+  .match-status {
+    font-size: 12px;
+    color: var(--text-light);
+    line-height: 1.4;
+  }
+  .match-card[data-state="LIVE"] .match-status { color: var(--dark-green); font-weight: 500; }
+
+  .match-action {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .btn {
+    padding: 9px 20px;
+    border: none;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .btn-primary {
+    background: var(--bright-green);
+    color: var(--white);
+  }
+  .btn-primary:hover {
+    background: var(--mid-green);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(76, 185, 80, 0.25);
+  }
+  .btn-secondary {
+    background: var(--bg);
+    color: var(--text-mid);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover {
+    border-color: var(--mid-green);
+    color: var(--dark-green);
+  }
+  .btn-stop {
+    background: var(--tan);
+    color: var(--text-dark);
+  }
+  .btn-stop:hover { background: #d9a26e; }
+
+  .loading-state, .empty-matches {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-light);
+    font-size: 14px;
+  }
+  .loading-spinner {
+    width: 32px; height: 32px;
+    border: 3px solid var(--border);
+    border-top-color: var(--bright-green);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 16px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Commentary View ── */
+  .commentary-header {
+    background: var(--white);
+    border-bottom: 1px solid var(--border);
+    padding: 16px clamp(16px, 4vw, 48px);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .commentary-header-inner {
+    max-width: 860px;
+    margin: 0 auto;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .back-btn {
+    background: none;
+    border: none;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-light);
+    cursor: pointer;
+    padding: 6px 12px;
+    border-radius: 6px;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .back-btn:hover { background: var(--bg); color: var(--text-dark); }
+  .commentary-match-info {
+    flex: 1;
+    min-width: 0;
+  }
+  .commentary-match-info h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-dark);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .commentary-match-info span {
+    font-size: 12px;
+    color: var(--text-light);
+  }
+
+  /* ── Scoreboard ── */
+  .scoreboard {
+    display: none;
+    background: var(--dark-green);
+    padding: 10px clamp(16px, 4vw, 48px);
+  }
+  .scoreboard.active { display: block; }
+  .scoreboard-inner {
+    max-width: 860px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+  .scoreboard-innings {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+  .scoreboard-team {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--cream);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .scoreboard-score {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--white);
+    letter-spacing: -0.5px;
+  }
+  .scoreboard-overs {
+    font-size: 12px;
+    color: rgba(226, 209, 163, 0.7);
+  }
+  .scoreboard-rr {
+    font-size: 11px;
+    color: rgba(226, 209, 163, 0.5);
+  }
+  .scoreboard-sep {
+    width: 1px;
+    height: 28px;
+    background: rgba(226, 209, 163, 0.2);
+  }
+
+  .feed-container {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    max-width: 860px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 0 clamp(16px, 4vw, 48px);
+  }
+  .feed {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .feed::-webkit-scrollbar { width: 5px; }
+  .feed::-webkit-scrollbar-track { background: transparent; }
+  .feed::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* ── Entry cards ── */
+  .entry {
+    padding: 14px 18px;
+    border-radius: 10px;
+    border-left: 3px solid var(--border);
+    background: var(--card-bg);
+    animation: fadeIn 0.3s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .entry.ball    { border-left-color: var(--bright-green); }
+  .entry.intro   { border-left-color: var(--tan); background: linear-gradient(135deg, var(--card-bg) 0%, #FDF8F0 100%); }
+  .entry.summary { border-left-color: var(--dark-green); background: linear-gradient(135deg, var(--card-bg) 0%, #F0F8F3 100%); }
+  .entry.score   { border-left-color: var(--mid-green); }
+  .entry.filler  { border-left-color: var(--cream); }
+  .entry.break   { border-left-color: var(--tan); background: #FDF8F0; }
+  .entry.status  { border-left-color: var(--border); background: var(--bg); }
+  .entry.error   { border-left-color: #D64545; background: #FDF5F5; }
+
+  .entry-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 5px;
+  }
+  .entry-tag {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-light);
+  }
+  .entry.ball .entry-tag { color: var(--bright-green); }
+  .entry.summary .entry-tag { color: var(--dark-green); }
+  .entry.intro .entry-tag { color: var(--tan); }
+  .entry-emotion {
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 8px;
+    background: rgba(76, 185, 80, 0.1);
+    color: var(--mid-green);
+    border-radius: 20px;
+  }
+  .entry-over {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-light);
+    margin-left: auto;
+  }
+  .entry-score-badge {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--dark-green);
+    background: rgba(10, 128, 67, 0.08);
+    padding: 2px 10px;
+    border-radius: 4px;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+  }
+  /* ── Run indicator (left of ball entry) ── */
+  .entry.ball {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+  .run-indicator {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 600;
+    background: #E8E5DF;
+    color: var(--text-mid);
+    margin-top: 2px;
+  }
+  .run-indicator.boundary {
+    background: var(--dark-green);
+    color: var(--white);
+    font-weight: 700;
+  }
+  .run-indicator.wicket {
+    background: #D64545;
+    color: var(--white);
+    font-weight: 700;
+  }
+  .ball-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* ── Over recap card (Google Cricket style) ── */
+  .over-recap {
+    background: #F0EDEA;
+    border-radius: 10px;
+    padding: 12px 16px;
+    animation: fadeIn 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .over-recap-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-light);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+  }
+  .over-recap-balls {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .over-recap-ball {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+    background: #DDD9D3;
+    color: var(--text-mid);
+  }
+  .over-recap-ball.boundary {
+    background: var(--dark-green);
+    color: var(--white);
+    font-weight: 700;
+  }
+  .over-recap-ball.wicket {
+    background: #D64545;
+    color: var(--white);
+    font-weight: 700;
+  }
+  .over-recap-runs {
+    margin-left: auto;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-mid);
+    white-space: nowrap;
+  }
+
+  .entry-text {
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--text-dark);
+  }
+  .entry.status .entry-text { color: var(--text-light); font-size: 13px; }
+  .entry.error .entry-text { color: #B63636; font-size: 13px; }
+
+  .empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 60px 20px;
+    gap: 12px;
+    color: var(--text-light);
+  }
+  .empty-state h3 { font-size: 16px; font-weight: 600; color: var(--text-mid); }
+  .empty-state p { font-size: 14px; max-width: 360px; line-height: 1.5; }
+
+  /* ── URL input bar (fallback) ── */
+  .url-bar {
+    background: var(--white);
+    border-bottom: 1px solid var(--border);
+    padding: 12px clamp(16px, 4vw, 48px);
+    display: none;
+  }
+  .url-bar.active { display: block; }
+  .url-bar-inner {
+    max-width: 960px;
+    margin: 0 auto;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .url-bar input {
+    flex: 1;
+    padding: 10px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--text-dark);
+    background: var(--bg);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .url-bar input:focus { border-color: var(--mid-green); }
+  .url-bar input::placeholder { color: var(--text-light); }
+
+  /* ── Responsive ── */
+  @media (max-width: 640px) {
+    nav { height: 56px; }
+    .nav-brand h1 { font-size: 18px; }
+    .nav-brand span { display: none; }
+    .match-card { flex-direction: column; align-items: stretch; gap: 12px; }
+    .match-action { flex-direction: row; }
+    .match-action .btn { flex: 1; }
+    .commentary-header-inner { flex-direction: column; align-items: stretch; gap: 8px; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-brand">
+    <h1 onclick="showBrowser()">sixthstump</h1>
+    <span>AI Commentary</span>
+  </div>
+  <div class="nav-status">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">Ready</span>
+  </div>
+</nav>
+
+<!-- ── Match Browser View ── -->
+<div class="view active" id="browserView">
+  <div class="browser-header">
+    <div class="browser-header-inner">
+      <h2>Matches</h2>
+      <p>Select a match to generate AI-powered cricket commentary</p>
+      <div class="filters">
+        <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">All</button>
+        <button class="filter-btn" data-filter="LIVE" onclick="setFilter('LIVE')">Live</button>
+        <button class="filter-btn" data-filter="POST" onclick="setFilter('POST')">Completed</button>
+        <button class="filter-btn" data-filter="PRE" onclick="setFilter('PRE')">Upcoming</button>
+        <input class="filter-search" type="text" placeholder="Search teams, series..." oninput="filterMatches()">
+      </div>
+    </div>
+  </div>
+  <div class="match-list" id="matchList">
+    <div class="match-list-inner" id="matchListInner">
+      <div class="loading-state" id="loadingState">
+        <div class="loading-spinner"></div>
+        <p>Loading matches from ESPNcricinfo...</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Commentary View ── -->
+<div class="view" id="commentaryView">
+  <div class="commentary-header">
+    <div class="commentary-header-inner">
+      <button class="back-btn" onclick="stopAndGoBack()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+        Back
+      </button>
+      <div class="commentary-match-info">
+        <h3 id="commentaryTitle"></h3>
+        <span id="commentarySeries"></span>
+      </div>
+      <button class="btn btn-stop" id="stopBtn" onclick="stopCommentary()" style="display:none">Stop</button>
+    </div>
+  </div>
+  <div class="scoreboard" id="scoreboard">
+    <div class="scoreboard-inner" id="scoreboardInner"></div>
+  </div>
+  <div class="feed-container">
+    <div class="feed" id="feed">
+      <div class="empty-state" id="emptyState">
+        <h3>Starting commentary...</h3>
+        <p>Connecting to ESPNcricinfo and generating AI commentary</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function getTeamLogoUrl(teamId) {
+  if (!teamId) return '';
+  return `https://a.espncdn.com/i/teamlogos/cricket/500/${teamId}.png`;
+}
+
+function teamLogoImg(teamId, size) {
+  const url = getTeamLogoUrl(teamId);
+  if (!url) return '';
+  const s = size || 20;
+  return `<img src="${url}" alt="" style="width:${s}px;height:${s}px;object-fit:contain;vertical-align:middle;" onerror="this.style.display='none'">`;
+}
+
+let ws = null;
+let audioCtx = null;
+let nextPlayTime = 0;
+const SAMPLE_RATE = 44100;
+let allMatches = [];
+let currentFilter = 'all';
+let teamNames = {};
+let teamIds = {};
+let latestScore = '';
+let currentOverBalls = [];  // track balls in current over for recap
+let lastOverNum = null;     // track when over changes
+
+// ── Status ──
+function setStatus(text, state) {
+  document.getElementById('statusText').textContent = text;
+  const dot = document.getElementById('statusDot');
+  dot.className = 'status-dot';
+  if (state) dot.classList.add(state);
+}
+
+// ── Match Browser ──
+async function loadMatches() {
+  try {
+    const resp = await fetch('/api/matches');
+    const data = await resp.json();
+    allMatches = data.matches || [];
+    renderMatches();
+  } catch (e) {
+    document.getElementById('matchListInner').innerHTML =
+      `<div class="empty-matches"><p>Failed to load matches. <a href="#" onclick="loadMatches(); return false;">Retry</a></p></div>`;
+  }
+}
+
+function setFilter(filter) {
+  currentFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.filter === filter);
+  });
+  renderMatches();
+}
+
+function filterMatches() {
+  renderMatches();
+}
+
+function renderMatches() {
+  const search = document.querySelector('.filter-search').value.toLowerCase();
+  let filtered = allMatches;
+
+  if (currentFilter !== 'all') {
+    filtered = filtered.filter(m => m.state === currentFilter);
+  }
+  if (search) {
+    filtered = filtered.filter(m => {
+      const haystack = [
+        m.series, m.title, m.venue, m.statusText,
+        ...m.teams.map(t => t.name),
+        ...m.teams.map(t => t.abbreviation),
+      ].join(' ').toLowerCase();
+      return haystack.includes(search);
+    });
+  }
+
+  // Sort: LIVE first, then POST, then PRE
+  const order = { LIVE: 0, POST: 1, PRE: 2 };
+  filtered.sort((a, b) => (order[a.state] ?? 3) - (order[b.state] ?? 3));
+
+  const container = document.getElementById('matchListInner');
+
+  if (filtered.length === 0) {
+    container.innerHTML = `<div class="empty-matches"><p>No matches found</p></div>`;
+    return;
+  }
+
+  // Store filtered for startMatch lookup
+  window._filteredMatches = filtered;
+
+  container.innerHTML = filtered.map((m, idx) => {
+    const stateClass = m.state === 'LIVE' ? 'badge-live' : m.state === 'POST' ? 'badge-post' : 'badge-pre';
+    const stateLabel = m.state === 'LIVE' ? 'Live' : m.state === 'POST' ? 'Completed' : 'Upcoming';
+    const teamNames = m.teams.map(t => t.name).join(' vs ');
+
+    const scores = m.teams
+      .filter(t => t.score)
+      .map(t => `<span class="team-score"><strong>${t.abbreviation}</strong> ${t.score}</span>`)
+      .join('');
+
+    const actions = [];
+    if (m.state === 'LIVE') {
+      actions.push(`<button class="btn btn-primary" onclick="event.stopPropagation(); startMatchByIndex(${idx}, 'live')">Live Commentary</button>`);
+    }
+    if (m.state === 'POST' || m.state === 'LIVE') {
+      actions.push(`<button class="btn btn-secondary" onclick="event.stopPropagation(); startMatchByIndex(${idx}, 'replay')">Replay</button>`);
+    }
+
+    return `
+      <div class="match-card" data-state="${m.state}" onclick="this.querySelector('.btn-primary, .btn-secondary')?.click()">
+        <div class="match-info">
+          <div class="match-meta">
+            <span class="match-badge ${stateClass}">${stateLabel}</span>
+            <span class="match-format">${m.format}</span>
+            <span class="match-series">${m.series}</span>
+          </div>
+          <div class="match-teams">${m.teams.map(t => `${teamLogoImg(t.id, 20)} ${t.name}`).join(' <span class="vs">vs</span> ')}${m.title ? ` <span class="vs">- ${m.title}</span>` : ''}</div>
+          ${scores ? `<div class="match-scores">${scores}</div>` : ''}
+          ${m.statusText ? `<div class="match-status">${m.statusText}</div>` : ''}
+        </div>
+        ${actions.length ? `<div class="match-action">${actions.join('')}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+// ── View switching ──
+function showBrowser() {
+  stopCommentary();
+  document.getElementById('browserView').classList.add('active');
+  document.getElementById('commentaryView').classList.remove('active');
+  setStatus('Ready', '');
+}
+
+function showCommentary(title, series, teams) {
+  document.getElementById('browserView').classList.remove('active');
+  document.getElementById('commentaryView').classList.add('active');
+  const titleEl = document.getElementById('commentaryTitle');
+  if (teams && teams.length) {
+    titleEl.innerHTML = teams.map(t => `${teamLogoImg(t.id, 22)} ${t.name}`).join(' <span style="color:var(--text-light);font-weight:400;font-size:14px">vs</span> ');
+  } else {
+    titleEl.textContent = title;
+  }
+  document.getElementById('commentarySeries').textContent = series;
+  document.getElementById('scoreboard').classList.remove('active');
+  document.getElementById('scoreboardInner').innerHTML = '';
+  teamNames = {};
+  teamIds = {};
+  latestScore = '';
+  currentOverBalls = [];
+  lastOverNum = null;
+  document.getElementById('feed').innerHTML = `
+    <div class="empty-state" id="emptyState">
+      <h3>Starting commentary...</h3>
+      <p>Connecting to ESPNcricinfo and generating AI commentary</p>
+    </div>`;
+}
+
+function startMatchByIndex(idx, mode) {
+  const m = window._filteredMatches[idx];
+  if (!m) return;
+  const title = m.teams.map(t => t.name).join(' vs ');
+  startMatch(m.url, mode, title, m.series, m.teams);
+}
+
+function stopAndGoBack() {
+  stopCommentary();
+  showBrowser();
+}
+
+// ── Commentary ──
+function getBallLabel(bd) {
+  if (!bd) return '';
+  if (bd.isWicket) return 'W';
+  if (bd.wides) return `${bd.runs}wd`;
+  if (bd.noballs) return `${bd.runs}nb`;
+  if (bd.legbyes) return `${bd.runs}lb`;
+  if (bd.byes) return `${bd.runs}b`;
+  return String(bd.runs);
+}
+
+function getBallClass(bd) {
+  if (!bd) return '';
+  if (bd.isWicket) return 'wicket';
+  if (bd.isFour || bd.isSix) return 'boundary';
+  return '';
+}
+
+function renderOverRecap(overNum, balls) {
+  if (!balls.length) return;
+  const feed = document.getElementById('feed');
+  const totalRuns = balls.reduce((s, b) => s + (b.runs || 0), 0);
+  const div = document.createElement('div');
+  div.className = 'over-recap';
+  const displayOver = parseInt(overNum) + 1;
+  div.innerHTML = `
+    <span class="over-recap-label">Over ${displayOver}</span>
+    <div class="over-recap-balls">
+      ${balls.map(b => {
+        const cls = getBallClass(b);
+        const label = getBallLabel(b);
+        return `<span class="over-recap-ball ${cls}">${label}</span>`;
+      }).join('')}
+    </div>
+    <span class="over-recap-runs">${totalRuns} runs</span>
+  `;
+  feed.appendChild(div);
+}
+
+function addEntry(tag, text, emotion, over, ballData) {
+  const empty = document.getElementById('emptyState');
+  if (empty) empty.remove();
+
+  const feed = document.getElementById('feed');
+
+  // Over recap: check if over changed (for ball entries)
+  if (tag === 'ball' && over && ballData) {
+    const overNum = over.split('.')[0];
+    if (lastOverNum !== null && overNum !== lastOverNum) {
+      renderOverRecap(lastOverNum, currentOverBalls);
+      currentOverBalls = [];
+    }
+    lastOverNum = overNum;
+    currentOverBalls.push(ballData);
+  }
+
+  const div = document.createElement('div');
+  div.className = `entry ${tag}`;
+
+  // Ball entries get run indicator on the left
+  if (tag === 'ball' && ballData) {
+    const indicatorClass = getBallClass(ballData);
+    const indicatorLabel = getBallLabel(ballData);
+    const scoreBadge = latestScore ? `<span class="entry-score-badge">${latestScore}</span>` : '';
+
+    div.innerHTML = `
+      <div class="run-indicator ${indicatorClass}">${indicatorLabel}</div>
+      <div class="ball-content">
+        <div class="entry-header">
+          <span class="entry-tag">${tag}</span>
+          ${emotion ? `<span class="entry-emotion">${emotion}</span>` : ''}
+          ${scoreBadge}
+        </div>
+        <div class="entry-text">${text}</div>
+      </div>`;
+  } else {
+    let header = '';
+    if (tag !== 'status' && tag !== 'error') {
+      header = `<div class="entry-header">
+        <span class="entry-tag">${tag}</span>
+        ${emotion ? `<span class="entry-emotion">${emotion}</span>` : ''}
+      </div>`;
+    }
+    div.innerHTML = `${header}<div class="entry-text">${text}</div>`;
+  }
+
+  feed.appendChild(div);
+  feed.scrollTop = feed.scrollHeight;
+}
+
+function playAudio(base64Data) {
+  if (!audioCtx) return;
+  const binaryStr = atob(base64Data);
+  const len = binaryStr.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) bytes[i] = binaryStr.charCodeAt(i);
+
+  const float32 = new Float32Array(bytes.buffer);
+  const audioBuffer = audioCtx.createBuffer(1, float32.length, SAMPLE_RATE);
+  audioBuffer.getChannelData(0).set(float32);
+
+  const source = audioCtx.createBufferSource();
+  source.buffer = audioBuffer;
+  source.connect(audioCtx.destination);
+
+  const now = audioCtx.currentTime;
+  if (nextPlayTime < now) nextPlayTime = now;
+  source.start(nextPlayTime);
+  nextPlayTime += audioBuffer.duration + 1.5; // 1.5s silence gap between clips
+}
+
+function updateScoreboard(innings) {
+  const board = document.getElementById('scoreboard');
+  const inner = document.getElementById('scoreboardInner');
+  if (!innings.length) return;
+
+  // Build compact score string for ball entries (e.g. "BAN 42/1 (6.3)")
+  const current = innings[innings.length - 1];
+  const team = teamNames[current.innings] || '';
+  latestScore = `${team} ${current.runs}/${current.wickets} (${current.overs})`;
+
+  board.classList.add('active');
+  inner.innerHTML = innings.map((inn, i) => {
+    const team = teamNames[inn.innings] || `Inn ${inn.innings}`;
+    return `
+      ${i > 0 ? '<div class="scoreboard-sep"></div>' : ''}
+      <div class="scoreboard-innings">
+        <span class="scoreboard-team">${teamLogoImg(teamIds[inn.innings], 18)} ${team}</span>
+        <span class="scoreboard-score">${inn.runs}/${inn.wickets}</span>
+        <span class="scoreboard-overs">(${inn.overs} ov)</span>
+        <span class="scoreboard-rr">RR ${inn.runRate}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+function startMatch(url, mode, title, series, teams) {
+  showCommentary(title, series, teams);
+
+  if (!audioCtx) {
+    audioCtx = new AudioContext({ sampleRate: SAMPLE_RATE });
+  }
+  nextPlayTime = 0;
+
+  document.getElementById('stopBtn').style.display = '';
+  setStatus('Connecting...', 'connected');
+
+  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${protocol}//${location.host}/ws`);
+
+  ws.onopen = () => {
+    setStatus('Starting commentary...', 'running');
+    ws.send(JSON.stringify({ action: 'start', url, mode }));
+  };
+
+  ws.onmessage = (event) => {
+    const msg = JSON.parse(event.data);
+    switch (msg.type) {
+      case 'commentary':
+        addEntry(msg.tag || 'ball', msg.text, msg.emotion, msg.over, msg.ballData);
+        break;
+      case 'audio':
+        playAudio(msg.data);
+        break;
+      case 'teams':
+        teamNames = msg.teams || {};
+        teamIds = msg.teamIds || {};
+        break;
+      case 'scorecard':
+        updateScoreboard(msg.innings || []);
+        break;
+      case 'status':
+        addEntry('status', msg.text);
+        setStatus(msg.text, 'running');
+        break;
+      case 'error':
+        addEntry('error', msg.text);
+        break;
+      case 'done':
+        setStatus('Commentary complete', 'connected');
+        document.getElementById('stopBtn').style.display = 'none';
+        break;
+    }
+  };
+
+  ws.onclose = () => {
+    setStatus('Disconnected', '');
+    document.getElementById('stopBtn').style.display = 'none';
+  };
+
+  ws.onerror = () => {
+    setStatus('Connection error', '');
+    addEntry('error', 'WebSocket connection failed. Is the server running?');
+    document.getElementById('stopBtn').style.display = 'none';
+  };
+}
+
+function stopCommentary() {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ action: 'stop' }));
+  }
+  if (ws) {
+    ws.close();
+    ws = null;
+  }
+  setStatus('Stopped', '');
+  document.getElementById('stopBtn').style.display = 'none';
+}
+
+// Load matches on page load
+loadMatches();
+</script>
+</body>
+</html>
