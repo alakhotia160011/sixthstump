@@ -8,6 +8,7 @@ import re
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
+from fastapi.middleware.cors import CORSMiddleware
 
 from scraper import CricketScraper, fetch_matches
 from enhancer import CommentaryEnhancer
@@ -21,6 +22,15 @@ logger = logging.getLogger(__name__)
 _VALID_URL_RE = re.compile(r'^https?://(www\.)?espncricinfo\.com/series/.+$')
 
 app = FastAPI(title="sixthstump")
+
+# CORS for frontend hosted on Vercel (or any origin)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 

@@ -1027,6 +1027,14 @@
 </div>
 
 <script>
+// Backend URL - empty means same origin (localhost or Railway direct)
+// When frontend is on Vercel/custom domain, point to Railway backend
+const _isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+const _isRailway = location.hostname.includes('railway.app');
+const BACKEND_URL = (_isLocal || _isRailway) ? '' : 'https://sixthstump-production.up.railway.app';
+const API_BASE = BACKEND_URL;
+const WS_BASE = BACKEND_URL ? BACKEND_URL.replace(/^https?/, m => m === 'https' ? 'wss' : 'ws') : '';
+
 // HTML-escape to prevent XSS from server data
 function esc(str) {
   if (str === null || str === undefined || str === '') return '';
@@ -1078,7 +1086,7 @@ function setStatus(text, state) {
 // Match Browser
 async function loadMatches() {
   try {
-    const resp = await fetch('/api/matches');
+    const resp = await fetch(`${API_BASE}/api/matches`);
     const data = await resp.json();
     allMatches = data.matches || [];
     renderMatches();
@@ -1548,8 +1556,7 @@ function resumeCommentary() {
   document.getElementById('stopBtn').style.display = '';
   setStatus('Reconnecting...', 'connected');
 
-  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  ws = new WebSocket(`${protocol}//${location.host}/ws`);
+  ws = new WebSocket(`${WS_BASE || ((location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host)}/ws`);
   ws.onopen = () => {
     setStatus('Commentary resumed', 'running');
     const startMsg = { action: 'start', url: lastMatchUrl, mode: lastMatchMode };
@@ -1595,8 +1602,7 @@ function startMatch(url, mode, title, series, teams) {
   document.getElementById('resumeBtn').style.display = 'none';
   setStatus('Connecting...', 'connected');
 
-  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  ws = new WebSocket(`${protocol}//${location.host}/ws`);
+  ws = new WebSocket(`${WS_BASE || ((location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host)}/ws`);
 
   ws.onopen = () => {
     setStatus('Starting commentary...', 'running');
