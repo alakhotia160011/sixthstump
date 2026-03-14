@@ -8,7 +8,7 @@ from enhancer import CommentaryEnhancer
 from tts import CommentaryTTS
 from player import AudioPlayer
 from tracker import ReplayStatTracker
-from config import POLL_INTERVAL
+from config import POLL_INTERVAL, VOICE_CONFIG
 
 
 async def run(match_url: str, replay: bool = False):
@@ -42,15 +42,19 @@ async def run(match_url: str, replay: bool = False):
         # Generate and play match introduction
         if match_intro:
             print("[main] generating match intro...")
-            intro = await enhancer.generate_intro(match_intro)
-            if intro.text:
-                print(f"[intro] ({intro.emotion}) {intro.text}")
+            intro_segments = await enhancer.generate_intro(match_intro)
+            for seg in intro_segments:
+                if not seg.text:
+                    continue
+                print(f"[{seg.speaker}] ({seg.emotion}) {seg.text}")
                 try:
-                    pcm_audio = tts.synthesize(intro.text, emotion=intro.emotion)
+                    vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["harsha"])
+                    pcm_audio = tts.synthesize(seg.text, emotion=seg.emotion,
+                                               voice_id=vcfg["voice_id"], language=vcfg["language"])
                     player.play_with_pause(pcm_audio, pause_after=1.5)
                 except Exception as e:
                     print(f"[tts] intro error: {e}")
-                print()
+            print()
 
         prev_over = None
         recent_balls: list[str] = []
@@ -75,15 +79,19 @@ async def run(match_url: str, replay: bool = False):
                         print("[main] === INNINGS BREAK ===")
                         # Use tracker's accumulated context for the break summary
                         tracker_context = tracker.get_match_context()
-                        break_result = await enhancer.generate_innings_break(tracker_context)
-                        if break_result.text:
-                            print(f"[break] ({break_result.emotion}) {break_result.text}")
+                        break_segments = await enhancer.generate_innings_break(tracker_context)
+                        for seg in break_segments:
+                            if not seg.text:
+                                continue
+                            print(f"[{seg.speaker}] ({seg.emotion}) {seg.text}")
                             try:
-                                pcm_audio = tts.synthesize(break_result.text, emotion=break_result.emotion)
+                                vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["harsha"])
+                                pcm_audio = tts.synthesize(seg.text, emotion=seg.emotion,
+                                                           voice_id=vcfg["voice_id"], language=vcfg["language"])
                                 player.play_with_pause(pcm_audio, pause_after=2.0)
                             except Exception as e:
                                 print(f"[tts] break error: {e}")
-                            print()
+                        print()
                         recent_balls.clear()
                         summaries_done.clear()
                         current_innings += 1
@@ -100,28 +108,36 @@ async def run(match_url: str, replay: bool = False):
                             print(f"[main] --- over {display_over} summary ---")
                             player_stats = tracker.get_player_stats(current_innings)
                             tracker_context = tracker.get_match_context()
-                            summary = await enhancer.generate_over_summary(display_over, tracker_context, recent_balls, player_stats)
-                            if summary.text:
-                                print(f"[summary] ({summary.emotion}) {summary.text}")
+                            summary_segments = await enhancer.generate_over_summary(display_over, tracker_context, recent_balls, player_stats)
+                            for seg in summary_segments:
+                                if not seg.text:
+                                    continue
+                                print(f"[{seg.speaker}] ({seg.emotion}) {seg.text}")
                                 try:
-                                    pcm_audio = tts.synthesize(summary.text, emotion=summary.emotion)
+                                    vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["harsha"])
+                                    pcm_audio = tts.synthesize(seg.text, emotion=seg.emotion,
+                                                               voice_id=vcfg["voice_id"], language=vcfg["language"])
                                     player.play_with_pause(pcm_audio, pause_after=1.2)
                                 except Exception as e:
                                     print(f"[tts] summary error: {e}")
-                                print()
+                            print()
                         else:
                             # Regular over change — quick score + batsmen update
                             current_stats = tracker.get_current_player_stats(entry.text, current_innings)
                             tracker_context = tracker.get_match_context()
-                            score_update = await enhancer.generate_score_update(display_over, tracker_context, current_stats)
-                            if score_update.text:
-                                print(f"[score] ({score_update.emotion}) {score_update.text}")
+                            score_segments = await enhancer.generate_score_update(display_over, tracker_context, current_stats)
+                            for seg in score_segments:
+                                if not seg.text:
+                                    continue
+                                print(f"[{seg.speaker}] ({seg.emotion}) {seg.text}")
                                 try:
-                                    pcm_audio = tts.synthesize(score_update.text, emotion=score_update.emotion)
+                                    vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["harsha"])
+                                    pcm_audio = tts.synthesize(seg.text, emotion=seg.emotion,
+                                                               voice_id=vcfg["voice_id"], language=vcfg["language"])
                                     player.play_with_pause(pcm_audio, pause_after=1.0)
                                 except Exception as e:
                                     print(f"[tts] score error: {e}")
-                                print()
+                            print()
                 except ValueError:
                     pass
             prev_over = entry.over
@@ -134,14 +150,18 @@ async def run(match_url: str, replay: bool = False):
 
             # Use tracker context so we don't leak future match info
             live_context = tracker.get_match_context()
-            result = await enhancer.enhance(entry.text, live_context, over=entry.over)
-            print(f"[commentary] ({result.emotion}) {result.text}")
-
-            try:
-                pcm_audio = tts.synthesize(result.text, emotion=result.emotion)
-                player.play_with_pause(pcm_audio, pause_after=0.8)
-            except Exception as e:
-                print(f"[tts] error: {e}")
+            segments = await enhancer.enhance(entry.text, live_context, over=entry.over)
+            for seg in segments:
+                if not seg.text:
+                    continue
+                print(f"[{seg.speaker}] ({seg.emotion}) {seg.text}")
+                try:
+                    vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["harsha"])
+                    pcm_audio = tts.synthesize(seg.text, emotion=seg.emotion,
+                                               voice_id=vcfg["voice_id"], language=vcfg["language"])
+                    player.play_with_pause(pcm_audio, pause_after=0.8)
+                except Exception as e:
+                    print(f"[tts] error: {e}")
 
             recent_balls.append(f"[{entry.over}] {entry.text[:80]}")
             if len(recent_balls) > 12:
@@ -151,15 +171,19 @@ async def run(match_url: str, replay: bool = False):
             if ball_count % 3 == 0:
                 current_stats = tracker.get_current_player_stats(entry.text, current_innings)
                 tracker_context = tracker.get_match_context()
-                filler = await enhancer.generate_filler(tracker_context, recent_balls, current_stats)
-                if filler.text:
-                    print(f"[filler] ({filler.emotion}) {filler.text}")
+                filler_segments = await enhancer.generate_filler(tracker_context, recent_balls, current_stats)
+                for seg in filler_segments:
+                    if not seg.text:
+                        continue
+                    print(f"[{seg.speaker}] ({seg.emotion}) {seg.text}")
                     try:
-                        pcm_audio = tts.synthesize(filler.text, emotion=filler.emotion)
+                        vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["harsha"])
+                        pcm_audio = tts.synthesize(seg.text, emotion=seg.emotion,
+                                                   voice_id=vcfg["voice_id"], language=vcfg["language"])
                         player.play_with_pause(pcm_audio, pause_after=0.6)
                     except Exception as e:
                         print(f"[tts] filler error: {e}")
-                    print()
+                print()
 
             print()
 
@@ -173,15 +197,19 @@ async def run(match_url: str, replay: bool = False):
         match_intro = await scraper.get_match_intro()
         if match_intro:
             print("[main] generating match intro...")
-            intro = await enhancer.generate_intro(match_intro, match_context)
-            if intro.text:
-                print(f"[intro] ({intro.emotion}) {intro.text}")
+            intro_segments = await enhancer.generate_intro(match_intro, match_context)
+            for seg in intro_segments:
+                if not seg.text:
+                    continue
+                print(f"[{seg.speaker}] ({seg.emotion}) {seg.text}")
                 try:
-                    pcm_audio = tts.synthesize(intro.text, emotion=intro.emotion)
+                    vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["harsha"])
+                    pcm_audio = tts.synthesize(seg.text, emotion=seg.emotion,
+                                               voice_id=vcfg["voice_id"], language=vcfg["language"])
                     player.play_with_pause(pcm_audio, pause_after=1.5)
                 except Exception as e:
                     print(f"[tts] intro error: {e}")
-                print()
+            print()
 
         if entries:
             print(f"[main] skipped {len(entries)} existing entries — waiting for live balls")
@@ -216,15 +244,19 @@ async def run(match_url: str, replay: bool = False):
                                     summaries_done.add(prev_int)
                                     print(f"[main] --- over {prev_int} summary ---")
                                     player_stats = scraper.get_player_stats()
-                                    summary = await enhancer.generate_over_summary(prev_int, match_context, recent_balls, player_stats)
-                                    if summary.text:
-                                        print(f"[summary] ({summary.emotion}) {summary.text}")
+                                    summary_segments = await enhancer.generate_over_summary(prev_int, match_context, recent_balls, player_stats)
+                                    for seg in summary_segments:
+                                        if not seg.text:
+                                            continue
+                                        print(f"[{seg.speaker}] ({seg.emotion}) {seg.text}")
                                         try:
-                                            pcm_audio = tts.synthesize(summary.text, emotion=summary.emotion)
+                                            vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["harsha"])
+                                            pcm_audio = tts.synthesize(seg.text, emotion=seg.emotion,
+                                                                       voice_id=vcfg["voice_id"], language=vcfg["language"])
                                             player.play_with_pause(pcm_audio, pause_after=1.2)
                                         except Exception as e:
                                             print(f"[tts] summary error: {e}")
-                                        print()
+                                    print()
                             except ValueError:
                                 pass
                         prev_over = entry.over
@@ -232,14 +264,18 @@ async def run(match_url: str, replay: bool = False):
 
                         print(f"[ball {entry.over}] {entry.text}")
 
-                        result = await enhancer.enhance(entry.text, match_context, over=entry.over)
-                        print(f"[commentary] ({result.emotion}) {result.text}")
-
-                        try:
-                            pcm_audio = tts.synthesize(result.text, emotion=result.emotion)
-                            player.play_with_pause(pcm_audio, pause_after=0.8)
-                        except Exception as e:
-                            print(f"[tts] error: {e}")
+                        segments = await enhancer.enhance(entry.text, match_context, over=entry.over)
+                        for seg in segments:
+                            if not seg.text:
+                                continue
+                            print(f"[{seg.speaker}] ({seg.emotion}) {seg.text}")
+                            try:
+                                vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["harsha"])
+                                pcm_audio = tts.synthesize(seg.text, emotion=seg.emotion,
+                                                           voice_id=vcfg["voice_id"], language=vcfg["language"])
+                                player.play_with_pause(pcm_audio, pause_after=0.8)
+                            except Exception as e:
+                                print(f"[tts] error: {e}")
 
                         recent_balls.append(f"[{entry.over}] {entry.text[:80]}")
                         if len(recent_balls) > 12:
@@ -253,15 +289,19 @@ async def run(match_url: str, replay: bool = False):
                     # After 3+ empty polls (~24s), fill the gap with insight
                     if empty_polls == 3 and last_ball_text:
                         current_stats = scraper.get_current_player_stats(last_ball_text)
-                        filler = await enhancer.generate_filler(match_context, recent_balls, current_stats)
-                        if filler.text:
-                            print(f"[filler] ({filler.emotion}) {filler.text}")
+                        filler_segments = await enhancer.generate_filler(match_context, recent_balls, current_stats)
+                        for seg in filler_segments:
+                            if not seg.text:
+                                continue
+                            print(f"[{seg.speaker}] ({seg.emotion}) {seg.text}")
                             try:
-                                pcm_audio = tts.synthesize(filler.text, emotion=filler.emotion)
+                                vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["harsha"])
+                                pcm_audio = tts.synthesize(seg.text, emotion=seg.emotion,
+                                                           voice_id=vcfg["voice_id"], language=vcfg["language"])
                                 player.play_with_pause(pcm_audio, pause_after=0.6)
                             except Exception as e:
                                 print(f"[tts] filler error: {e}")
-                            print()
+                        print()
 
             except Exception as e:
                 print(f"[main] error in loop: {e}")

@@ -468,6 +468,32 @@
   .entry.status  { border-left-color: var(--border); background: var(--bg); }
   .entry.error   { border-left-color: #D64545; background: #FDF5F5; }
 
+  /* Speaker-specific styling */
+  .entry.speaker-nasser { border-left-color: #5B7BB5; }
+  .entry.speaker-nasser.filler { border-left-color: #8BA3CF; }
+  .entry.speaker-ian { border-left-color: #2E8B57; }
+  .entry.speaker-ian.filler { border-left-color: #5CAD7E; }
+  .speaker-badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .speaker-badge.harsha {
+    background: rgba(226, 176, 126, 0.15);
+    color: #B8862D;
+  }
+  .speaker-badge.nasser {
+    background: rgba(91, 123, 181, 0.12);
+    color: #4A6A9E;
+  }
+  .speaker-badge.ian {
+    background: rgba(46, 139, 87, 0.12);
+    color: #2E8B57;
+  }
+
   .entry-header {
     display: flex;
     align-items: center;
@@ -729,6 +755,14 @@
 </div>
 
 <script>
+// HTML-escape to prevent XSS from server data
+function esc(str) {
+  if (!str) return '';
+  const d = document.createElement('div');
+  d.textContent = String(str);
+  return d.innerHTML;
+}
+
 function getTeamLogoUrl(teamId) {
   if (!teamId) return '';
   return `https://a.espncdn.com/i/teamlogos/cricket/500/${teamId}.png`;
@@ -834,11 +868,10 @@ function renderMatches() {
     const isBreak = m.state === 'LIVE' && breakWords.some(w => statusLower.includes(w));
     const stateClass = isBreak ? 'badge-break' : m.state === 'LIVE' ? 'badge-live' : m.state === 'POST' ? 'badge-post' : 'badge-pre';
     const stateLabel = isBreak ? (statusLower.includes('lunch') ? 'Lunch' : statusLower.includes('tea') ? 'Tea' : statusLower.includes('stumps') ? 'Stumps' : 'Break') : m.state === 'LIVE' ? 'Live' : m.state === 'POST' ? 'Completed' : 'Upcoming';
-    const teamNames = m.teams.map(t => t.name).join(' vs ');
 
     const scores = m.teams
       .filter(t => t.score)
-      .map(t => `<span class="team-score"><strong>${t.abbreviation}</strong> ${t.score}</span>`)
+      .map(t => `<span class="team-score"><strong>${esc(t.abbreviation)}</strong> ${esc(t.score)}</span>`)
       .join('');
 
     const actions = [];
@@ -850,16 +883,16 @@ function renderMatches() {
     }
 
     return `
-      <div class="match-card" data-state="${m.state}" onclick="this.querySelector('.btn-primary, .btn-secondary')?.click()">
+      <div class="match-card" data-state="${esc(m.state)}" onclick="this.querySelector('.btn-primary, .btn-secondary')?.click()">
         <div class="match-info">
           <div class="match-meta">
-            <span class="match-badge ${stateClass}">${stateLabel}</span>
-            <span class="match-format">${m.format}</span>
-            <span class="match-series">${m.series}</span>
+            <span class="match-badge ${stateClass}">${esc(stateLabel)}</span>
+            <span class="match-format">${esc(m.format)}</span>
+            <span class="match-series">${esc(m.series)}</span>
           </div>
-          <div class="match-teams">${m.teams.map(t => `${teamLogoImg(t.id, 20)} ${t.name}`).join(' <span class="vs">vs</span> ')}${m.title ? ` <span class="vs">- ${m.title}</span>` : ''}</div>
+          <div class="match-teams">${m.teams.map(t => `${teamLogoImg(t.id, 20)} ${esc(t.name)}`).join(' <span class="vs">vs</span> ')}${m.title ? ` <span class="vs">- ${esc(m.title)}</span>` : ''}</div>
           ${scores ? `<div class="match-scores">${scores}</div>` : ''}
-          ${m.statusText ? `<div class="match-status">${m.statusText}</div>` : ''}
+          ${m.statusText ? `<div class="match-status">${esc(m.statusText)}</div>` : ''}
         </div>
         ${actions.length ? `<div class="match-action">${actions.join('')}</div>` : ''}
       </div>
@@ -880,7 +913,7 @@ function showCommentary(title, series, teams) {
   document.getElementById('commentaryView').classList.add('active');
   const titleEl = document.getElementById('commentaryTitle');
   if (teams && teams.length) {
-    titleEl.innerHTML = teams.map(t => `${teamLogoImg(t.id, 22)} ${t.name}`).join(' <span style="color:var(--text-light);font-weight:400;font-size:14px">vs</span> ');
+    titleEl.innerHTML = teams.map(t => `${teamLogoImg(t.id, 22)} ${esc(t.name)}`).join(' <span style="color:var(--text-light);font-weight:400;font-size:14px">vs</span> ');
   } else {
     titleEl.textContent = title;
   }
@@ -904,7 +937,7 @@ function showCommentary(title, series, teams) {
     inner.innerHTML = teams.map((t, i) => `
       ${i > 0 ? '<div class="scoreboard-sep"></div>' : ''}
       <div class="scoreboard-innings">
-        <span class="scoreboard-team">${teamLogoImg(t.id, 18)} ${t.abbreviation || t.name}</span>
+        <span class="scoreboard-team">${teamLogoImg(t.id, 18)} ${esc(t.abbreviation || t.name)}</span>
         <span class="scoreboard-score">—</span>
       </div>
     `).join('');
@@ -973,7 +1006,7 @@ function renderOverRecap(overNum, balls) {
   feed.appendChild(div);
 }
 
-function addEntry(tag, text, emotion, over, ballData, score) {
+function addEntry(tag, text, emotion, over, ballData, score, speaker) {
   const empty = document.getElementById('emptyState');
   if (empty) empty.remove();
 
@@ -990,8 +1023,12 @@ function addEntry(tag, text, emotion, over, ballData, score) {
     currentOverBalls.push(ballData);
   }
 
+  const spk = speaker || '';
+  const speakerNames = { harsha: 'Harsha', nasser: 'Nasser', ian: 'Ian' };
+  const speakerBadge = spk ? `<span class="speaker-badge ${esc(spk)}">${esc(speakerNames[spk] || spk)}</span>` : '';
+
   const div = document.createElement('div');
-  div.className = `entry ${tag}`;
+  div.className = `entry ${tag}${spk ? ` speaker-${spk}` : ''}`;
 
   // Ball entries get run indicator on the left
   if (tag === 'ball' && ballData) {
@@ -999,27 +1036,29 @@ function addEntry(tag, text, emotion, over, ballData, score) {
     const indicatorLabel = getBallLabel(ballData);
     // Use captured score (from when commentary was received), not the current global
     const displayScore = score !== undefined ? score : latestScore;
-    const scoreBadge = displayScore ? `<span class="entry-score-badge">${displayScore}</span>` : '';
+    const scoreBadge = displayScore ? `<span class="entry-score-badge">${esc(displayScore)}</span>` : '';
 
     div.innerHTML = `
-      <div class="run-indicator ${indicatorClass}">${indicatorLabel}</div>
+      <div class="run-indicator ${indicatorClass}">${esc(indicatorLabel)}</div>
       <div class="ball-content">
         <div class="entry-header">
-          <span class="entry-tag">${tag}</span>
-          ${emotion ? `<span class="entry-emotion">${emotion}</span>` : ''}
+          ${speakerBadge}
+          <span class="entry-tag">${esc(tag)}</span>
+          ${emotion ? `<span class="entry-emotion">${esc(emotion)}</span>` : ''}
           ${scoreBadge}
         </div>
-        <div class="entry-text">${text}</div>
+        <div class="entry-text">${esc(text)}</div>
       </div>`;
   } else {
     let header = '';
     if (tag !== 'status' && tag !== 'error') {
       header = `<div class="entry-header">
-        <span class="entry-tag">${tag}</span>
-        ${emotion ? `<span class="entry-emotion">${emotion}</span>` : ''}
+        ${speakerBadge}
+        <span class="entry-tag">${esc(tag)}</span>
+        ${emotion ? `<span class="entry-emotion">${esc(emotion)}</span>` : ''}
       </div>`;
     }
-    div.innerHTML = `${header}<div class="entry-text">${text}</div>`;
+    div.innerHTML = `${header}<div class="entry-text">${esc(text)}</div>`;
   }
 
   feed.appendChild(div);
@@ -1028,10 +1067,22 @@ function addEntry(tag, text, emotion, over, ballData, score) {
 
 function playAudio(base64Data) {
   if (!audioCtx) return;
+  try {
   const binaryStr = atob(base64Data);
   const len = binaryStr.length;
   const bytes = new Uint8Array(len);
   for (let i = 0; i < len; i++) bytes[i] = binaryStr.charCodeAt(i);
+
+  if (bytes.length % 4 !== 0) {
+    console.error('Audio data length not a multiple of 4, skipping');
+    // Show pending commentary immediately since audio won't play
+    if (pendingCommentary) {
+      const pc = pendingCommentary;
+      pendingCommentary = null;
+      addEntry(pc.tag, pc.text, pc.emotion, pc.over, pc.ballData, pc.score, pc.speaker);
+    }
+    return;
+  }
 
   const float32 = new Float32Array(bytes.buffer);
   const audioBuffer = audioCtx.createBuffer(1, float32.length, SAMPLE_RATE);
@@ -1055,7 +1106,7 @@ function playAudio(base64Data) {
     const sid = sessionId; // capture session to discard if user switched matches
     const showEntry = () => {
       if (sid !== sessionId) return; // stale callback from previous match
-      addEntry(pc.tag, pc.text, pc.emotion, pc.over, pc.ballData, pc.score);
+      addEntry(pc.tag, pc.text, pc.emotion, pc.over, pc.ballData, pc.score, pc.speaker);
     };
     if (delay <= 0) {
       showEntry();
@@ -1071,6 +1122,15 @@ function playAudio(base64Data) {
   };
 
   nextPlayTime += audioBuffer.duration + AUDIO_GAP;
+  } catch (e) {
+    console.error('Audio playback error:', e);
+    // Show pending commentary even if audio fails
+    if (pendingCommentary) {
+      const pc = pendingCommentary;
+      pendingCommentary = null;
+      addEntry(pc.tag, pc.text, pc.emotion, pc.over, pc.ballData, pc.score, pc.speaker);
+    }
+  }
 }
 
 function updateScoreboard(innings) {
@@ -1089,10 +1149,10 @@ function updateScoreboard(innings) {
     return `
       ${i > 0 ? '<div class="scoreboard-sep"></div>' : ''}
       <div class="scoreboard-innings">
-        <span class="scoreboard-team">${teamLogoImg(teamIds[inn.innings], 18)} ${team}</span>
-        <span class="scoreboard-score">${inn.runs}/${inn.wickets}</span>
-        <span class="scoreboard-overs">(${inn.overs} ov)</span>
-        <span class="scoreboard-rr">RR ${inn.runRate}</span>
+        <span class="scoreboard-team">${teamLogoImg(teamIds[inn.innings], 18)} ${esc(team)}</span>
+        <span class="scoreboard-score">${esc(inn.runs)}/${esc(inn.wickets)}</span>
+        <span class="scoreboard-overs">(${esc(inn.overs)} ov)</span>
+        <span class="scoreboard-rr">RR ${esc(inn.runRate)}</span>
       </div>
     `;
   }).join('');
@@ -1103,9 +1163,9 @@ function handleMessage(msg) {
     case 'commentary':
       if (pendingCommentary) {
         const pc = pendingCommentary;
-        addEntry(pc.tag, pc.text, pc.emotion, pc.over, pc.ballData, pc.score);
+        addEntry(pc.tag, pc.text, pc.emotion, pc.over, pc.ballData, pc.score, pc.speaker);
       }
-      pendingCommentary = { tag: msg.tag || 'ball', text: msg.text, emotion: msg.emotion, over: msg.over, ballData: msg.ballData, score: latestScore };
+      pendingCommentary = { tag: msg.tag || 'ball', text: msg.text, emotion: msg.emotion, over: msg.over, ballData: msg.ballData, score: latestScore, speaker: msg.speaker };
       break;
     case 'audio':
       playAudio(msg.data);
@@ -1130,7 +1190,7 @@ function handleMessage(msg) {
       if (pendingCommentary) {
         const pc = pendingCommentary;
         pendingCommentary = null;
-        addEntry(pc.tag, pc.text, pc.emotion, pc.over, pc.ballData, pc.score);
+        addEntry(pc.tag, pc.text, pc.emotion, pc.over, pc.ballData, pc.score, pc.speaker);
       }
       setStatus('Commentary complete', 'connected');
       document.getElementById('stopBtn').style.display = 'none';
@@ -1156,8 +1216,12 @@ function resumeCommentary() {
     ws.send(JSON.stringify({ action: 'start', url: lastMatchUrl, mode: lastMatchMode }));
   };
   ws.onmessage = (event) => {
-    const msg = JSON.parse(event.data);
-    handleMessage(msg);
+    try {
+      const msg = JSON.parse(event.data);
+      handleMessage(msg);
+    } catch (e) {
+      console.error('Failed to parse WebSocket message:', e);
+    }
   };
   ws.onclose = () => {
     setStatus('Disconnected', '');
@@ -1199,8 +1263,12 @@ function startMatch(url, mode, title, series, teams) {
   };
 
   ws.onmessage = (event) => {
-    const msg = JSON.parse(event.data);
-    handleMessage(msg);
+    try {
+      const msg = JSON.parse(event.data);
+      handleMessage(msg);
+    } catch (e) {
+      console.error('Failed to parse WebSocket message:', e);
+    }
   };
 
   ws.onclose = () => {

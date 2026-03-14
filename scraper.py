@@ -36,7 +36,7 @@ class CommentaryEntry:
 
 
 # Akamai EdgeAuth token generation for hs-consumer-api
-_HSCI_KEY = "9ced54a89687e1173e91c1f225fc02abf275a119fda8a41d731d2b04dac95ff5"
+from config import HSCI_KEY as _HSCI_KEY
 _TOKEN_TTL = 60
 
 
@@ -182,7 +182,8 @@ class CricketScraper:
             follow_redirects=True,
             timeout=20,
         )
-        self._extract_ids()
+        if not self._extract_ids():
+            raise ValueError(f"Could not extract series/match IDs from URL: {self.match_url}")
         print(f"[scraper] fetching commentary from ESPNcricinfo")
         print(f"[scraper] series={self._series_id} match={self._match_id}")
 

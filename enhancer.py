@@ -1,102 +1,122 @@
+from __future__ import annotations
+
 import asyncio
+import logging
 import random
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import anthropic
 from config import ANTHROPIC_API_KEY, CLAUDE_MODEL, COMMENTARY_SYSTEM_PROMPT
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
 class EnhancedCommentary:
     text: str
     emotion: str  # e.g. "excited", "calm", "triumphant"
+    speaker: str = "harsha"  # "harsha", "nasser", or "ian"
 
 
 class CommentaryEnhancer:
-    """Takes dry commentary text and makes it dramatic using Claude."""
+    """Takes dry commentary text and makes it dramatic using Claude — three commentator mode."""
+
+    _SPEAKERS = ["harsha", "nasser", "ian"]
 
     def __init__(self):
         self.client = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
-        self.recent_history: list[str] = []  # track recent for variety
+        self.recent_history: list[str] = []  # track recent for variety (includes speaker tags)
         self.recent_fillers: list[str] = []  # track recent fillers to avoid repetition
         self._filler_topic_queue: list[str] = []  # shuffled topic queue
+        self._last_lead: str = ""  # avoid same lead twice in a row
 
-    async def enhance(self, raw_text: str, match_context: str = "", over: str = "",
-                      player_stats: str = "", ball_data: dict | None = None) -> EnhancedCommentary:
-        """Transform a raw commentary entry into vivid spoken commentary."""
+    @property
+    def _lead_speaker(self) -> str:
+        return self._last_lead or random.choice(self._SPEAKERS)
 
-        user_prompt = self._build_prompt(raw_text, match_context, over, player_stats, ball_data)
+    def _alternate_lead(self):
+        # Pick a random speaker, but never the same one who just led
+        choices = [s for s in self._SPEAKERS if s != self._last_lead]
+        self._last_lead = random.choice(choices)
 
-        # Retry with backoff on rate limits
+    async def _call_claude(self, prompt: str, system: str = COMMENTARY_SYSTEM_PROMPT,
+                           max_tokens: int = 300) -> str | None:
+        """Call Claude with retry logic. Returns raw text or None on failure."""
         for attempt in range(3):
             try:
                 response = await self.client.messages.create(
                     model=CLAUDE_MODEL,
-                    max_tokens=300,
-                    system=COMMENTARY_SYSTEM_PROMPT,
-                    messages=[{"role": "user", "content": user_prompt}],
+                    max_tokens=max_tokens,
+                    system=system,
+                    messages=[{"role": "user", "content": prompt}],
                 )
-                break
+                if response.content:
+                    return response.content[0].text.strip()
+                logger.warning("Empty response from Claude")
+                return None
             except anthropic.RateLimitError:
                 wait = 2 ** attempt * 3
-                print(f"[enhancer] rate limited, waiting {wait}s...")
+                logger.info("Rate limited, waiting %ds...", wait)
                 await asyncio.sleep(wait)
-        else:
-            return EnhancedCommentary(text=raw_text, emotion="neutral")
+            except (anthropic.APIConnectionError, anthropic.APIStatusError) as e:
+                logger.warning("Claude API error (attempt %d): %s", attempt + 1, e)
+                if attempt < 2:
+                    await asyncio.sleep(2 ** attempt)
+            except Exception:
+                logger.exception("Unexpected Claude API error")
+                return None
+        return None
 
-        raw_response = response.content[0].text.strip()
+    async def enhance(self, raw_text: str, match_context: str = "", over: str = "",
+                      player_stats: str = "", ball_data: dict | None = None) -> list[EnhancedCommentary]:
+        """Transform a raw commentary entry into vivid dual-commentator spoken commentary."""
 
-        # Parse emotion tag and commentary text
-        emotion, text = self._parse_response(raw_response)
+        user_prompt = self._build_prompt(raw_text, match_context, over, player_stats, ball_data)
 
-        # Track recent outputs to avoid repetition
-        self.recent_history.append(text)
+        raw_response = await self._call_claude(user_prompt, max_tokens=400)
+        if not raw_response:
+            return [EnhancedCommentary(text=raw_text, emotion="neutral", speaker=self._lead_speaker)]
+
+        segments = self._parse_response(raw_response)
+
+        # Track recent outputs with speaker tags
+        for seg in segments:
+            self.recent_history.append(f"[{seg.speaker.upper()}] {seg.text}")
         if len(self.recent_history) > 10:
-            self.recent_history.pop(0)
+            self.recent_history = self.recent_history[-10:]
 
-        return EnhancedCommentary(text=text, emotion=emotion)
+        self._alternate_lead()
+        return segments
 
-    async def generate_innings_break(self, match_context: str) -> EnhancedCommentary:
-        """Generate a spoken innings break summary."""
-        prompt = f"""It's the innings break. Summarize what just happened and set up the chase/second innings. Build the narrative tension.
+    async def generate_innings_break(self, match_context: str) -> list[EnhancedCommentary]:
+        """Generate a spoken innings break summary — both commentators discuss."""
+        prompt = f"""It's the innings break. Have a conversation about what just happened and set up the chase/second innings.
 
 Match state:
 {match_context}
 
 Rules:
-- 3-4 sentences. Recap the key moments, the score, and what the chasing team needs.
+- 4-6 sentences total across all of you. Recap the key moments, the score, and what the chasing team needs.
+- All three commentators should contribute — one recaps, the others analyze or add opinion.
 - Build anticipation for the second innings.
 - Reference specific numbers — the total, key performers if you know them.
-- Write for SPEECH. Natural, conversational, Harsha Bhogle style.
-- End with something that transitions to the second innings — "Can they chase it down?" energy.
+- Write for SPEECH.
 
 Respond in the same format:
-[emotion: <emotion>]
-<your innings break commentary here>"""
+[HARSHA, <emotion>] <commentary>
+[NASSER, <emotion>] <commentary>
+[IAN, <emotion>] <commentary>"""
 
-        for attempt in range(3):
-            try:
-                response = await self.client.messages.create(
-                    model=CLAUDE_MODEL,
-                    max_tokens=400,
-                    system=COMMENTARY_SYSTEM_PROMPT,
-                    messages=[{"role": "user", "content": prompt}],
-                )
-                break
-            except anthropic.RateLimitError:
-                wait = 2 ** attempt * 3
-                await asyncio.sleep(wait)
-        else:
-            return EnhancedCommentary(text="", emotion="neutral")
+        raw_response = await self._call_claude(prompt, max_tokens=500)
+        if not raw_response:
+            return [EnhancedCommentary(text="", emotion="neutral", speaker="harsha")]
 
-        raw_response = response.content[0].text.strip()
-        emotion, text = self._parse_response(raw_response)
-        return EnhancedCommentary(text=text, emotion=emotion)
+        return self._parse_response(raw_response)
 
-    async def generate_intro(self, match_intro: str, match_context: str = "") -> EnhancedCommentary:
-        """Generate a spoken match introduction."""
-        intro_prompt = f"""You are opening the broadcast for this match. Set the scene — the tournament, the venue, the teams, the stakes. Build anticipation. This is the FIRST thing the audience hears.
+    async def generate_intro(self, match_intro: str, match_context: str = "") -> list[EnhancedCommentary]:
+        """Generate a spoken match introduction — both commentators open the broadcast."""
+        intro_prompt = f"""You're opening the broadcast together for this match. Set the scene — the tournament, the venue, the teams, the stakes.
 
 Match details:
 {match_intro}
@@ -104,44 +124,33 @@ Match details:
 {f"Current state: {match_context}" if match_context else ""}
 
 Rules:
-- Mention "sixthstump" somewhere in the intro — weave it in naturally. Vary how you do it each time. Examples: "This is sixthstump, and I'm Harsha Bhogle..." or "Harsha Bhogle here, on sixthstump, and what a day we have ahead..." or end with "...stay with us, right here on sixthstump." Don't always put it first — sometimes mid-sentence, sometimes at the end.
-- 3-5 sentences MAX after the intro line. Punchy, vivid, sets the tone.
-- Paint the picture: the stadium, the crowd, the atmosphere.
+- Harsha opens, Nasser and Ian add their takes. Like a real broadcast opening.
+- Mention "sixthstump" somewhere — weave it in naturally. Examples: "This is sixthstump, I'm Harsha Bhogle, alongside Nasser Hussain and Ian Smith..." or end with "...stay with us, right here on sixthstump."
+- 5-7 sentences total across all three. Punchy, vivid, sets the tone.
+- Paint the picture: the stadium, the atmosphere.
 - Mention both teams and the stakes naturally.
-- End with something that transitions into the action — "Let's get started" energy.
-- Write for SPEECH, not text. Natural rhythm, dramatic pauses with "..."
+- End with something that transitions into the action.
+- Write for SPEECH. Natural rhythm, dramatic pauses with "..."
 - Do NOT use cliché openers like "ladies and gentlemen" or "welcome to".
 
 Respond in the same format:
-[emotion: <emotion>]
-<your intro here>"""
+[HARSHA, <emotion>] <commentary>
+[NASSER, <emotion>] <commentary>
+[IAN, <emotion>] <commentary>"""
 
-        for attempt in range(3):
-            try:
-                response = await self.client.messages.create(
-                    model=CLAUDE_MODEL,
-                    max_tokens=400,
-                    system=COMMENTARY_SYSTEM_PROMPT,
-                    messages=[{"role": "user", "content": intro_prompt}],
-                )
-                break
-            except anthropic.RateLimitError:
-                wait = 2 ** attempt * 3
-                await asyncio.sleep(wait)
-        else:
-            return EnhancedCommentary(text="", emotion="neutral")
+        raw_response = await self._call_claude(intro_prompt, max_tokens=600)
+        if not raw_response:
+            return [EnhancedCommentary(text="", emotion="neutral", speaker="harsha")]
 
-        raw_response = response.content[0].text.strip()
-        emotion, text = self._parse_response(raw_response)
-        return EnhancedCommentary(text=text, emotion=emotion)
+        return self._parse_response(raw_response)
 
     # Key overs that deserve an extended summary segment
     # Over numbers are 0-indexed: 0.x = first over, 5.x = sixth over (end of powerplay)
     MILESTONE_OVERS = {5, 9, 14}
 
-    async def generate_score_update(self, over_number: int, match_context: str, current_player_stats: str = "") -> EnhancedCommentary:
-        """Generate a quick score update after an over ends — score, batsmen, run rate."""
-        prompt = f"""End of over {over_number}. Give a quick score update for the listener.
+    async def generate_score_update(self, over_number: int, match_context: str, current_player_stats: str = "") -> list[EnhancedCommentary]:
+        """Generate a quick score update after an over ends."""
+        prompt = f"""End of over {over_number}. Give a quick score update.
 
 Match state:
 {match_context}
@@ -149,38 +158,26 @@ Match state:
 {f"At the crease:{chr(10)}{current_player_stats}" if current_player_stats else ""}
 
 Rules:
-- 1-2 sentences ONLY. Quick and informative.
-- Read out the score: "India are X for Y after Z overs"
-- Mention who's at the crease and their scores: "Samson on 45 off 30, Kishan on 22 off 15"
-- If it's a chase, mention what's needed: "They need X more from Y overs"
-- Keep it natural — like a broadcaster giving a quick update between overs.
+- 1-2 sentences. Usually just one commentator for a score update.
+- Read out the score, who's at the crease and their scores.
+- If it's a chase, mention what's needed.
 - Write for SPEECH.
 
 Respond in the same format:
-[emotion: <emotion>]
-<your score update here>"""
+[HARSHA, <emotion>] <commentary>
+or
+[NASSER, <emotion>] <commentary>
+or
+[IAN, <emotion>] <commentary>"""
 
-        for attempt in range(3):
-            try:
-                response = await self.client.messages.create(
-                    model=CLAUDE_MODEL,
-                    max_tokens=200,
-                    system=COMMENTARY_SYSTEM_PROMPT,
-                    messages=[{"role": "user", "content": prompt}],
-                )
-                break
-            except anthropic.RateLimitError:
-                wait = 2 ** attempt * 3
-                await asyncio.sleep(wait)
-        else:
-            return EnhancedCommentary(text="", emotion="neutral")
+        raw_response = await self._call_claude(prompt, max_tokens=200)
+        if not raw_response:
+            return [EnhancedCommentary(text="", emotion="neutral", speaker=self._lead_speaker)]
 
-        raw_response = response.content[0].text.strip()
-        emotion, text = self._parse_response(raw_response)
-        return EnhancedCommentary(text=text, emotion=emotion)
+        return self._parse_response(raw_response)
 
-    async def generate_over_summary(self, over_number: int, match_context: str, recent_balls: list[str], player_stats: str = "") -> EnhancedCommentary:
-        """Generate a brief over/phase summary at key milestones."""
+    async def generate_over_summary(self, over_number: int, match_context: str, recent_balls: list[str], player_stats: str = "") -> list[EnhancedCommentary]:
+        """Generate a brief over/phase summary at key milestones — both commentators discuss."""
         phase = ""
         if over_number == 6:
             phase = "That's the end of the powerplay!"
@@ -191,7 +188,7 @@ Respond in the same format:
 
         recent_text = "\n".join(f"- {b}" for b in recent_balls[-6:]) if recent_balls else ""
 
-        prompt = f"""{phase} Give a brief phase summary — where the batting side stands, the momentum, what's coming next.
+        prompt = f"""{phase} Have a conversation about where the batting side stands, the momentum, what's coming next.
 
 Match state:
 {match_context}
@@ -202,34 +199,21 @@ Recent deliveries:
 {recent_text}
 
 Rules:
-- 2-3 sentences MAX. This is a quick recap, not a speech.
-- Reference specific player performances — who's been the star, who's been expensive, who's held firm.
-- Set up what's coming next — "The death overs beckon..." or "Time to accelerate..." type energy.
-- Harsha Bhogle style: insightful, not just stats. Tell us WHAT IT MEANS.
+- 3-5 sentences total. Two or three commentators should contribute.
+- Reference specific player performances.
+- Set up what's coming next.
 - Write for SPEECH.
 
 Respond in the same format:
-[emotion: <emotion>]
-<your summary here>"""
+[HARSHA, <emotion>] <commentary>
+[NASSER, <emotion>] <commentary>
+[IAN, <emotion>] <commentary>"""
 
-        for attempt in range(3):
-            try:
-                response = await self.client.messages.create(
-                    model=CLAUDE_MODEL,
-                    max_tokens=300,
-                    system=COMMENTARY_SYSTEM_PROMPT,
-                    messages=[{"role": "user", "content": prompt}],
-                )
-                break
-            except anthropic.RateLimitError:
-                wait = 2 ** attempt * 3
-                await asyncio.sleep(wait)
-        else:
-            return EnhancedCommentary(text="", emotion="neutral")
+        raw_response = await self._call_claude(prompt, max_tokens=400)
+        if not raw_response:
+            return [EnhancedCommentary(text="", emotion="neutral", speaker=self._lead_speaker)]
 
-        raw_response = response.content[0].text.strip()
-        emotion, text = self._parse_response(raw_response)
-        return EnhancedCommentary(text=text, emotion=emotion)
+        return self._parse_response(raw_response)
 
     # Rotating filler topics — cycle through these to force variety
     _FILLER_TOPICS = [
@@ -241,8 +225,8 @@ Respond in the same format:
         "Talk about a DIFFERENT player — not the current batsman or bowler, but someone else in the innings (a dismissed batsman, a bowler waiting for their next spell).",
     ]
 
-    async def generate_filler(self, match_context: str, recent_balls: list[str], player_stats: str = "") -> EnhancedCommentary:
-        """Generate between-balls filler — a stat, anecdote, or tactical insight during quiet periods."""
+    async def generate_filler(self, match_context: str, recent_balls: list[str], player_stats: str = "") -> list[EnhancedCommentary]:
+        """Generate between-balls filler — a conversation between commentators during quiet periods."""
         recent_text = "\n".join(f"- {b}" for b in recent_balls[-6:]) if recent_balls else ""
 
         # Pick from a shuffled queue — reshuffle when exhausted
@@ -255,7 +239,7 @@ Respond in the same format:
         if self.recent_fillers:
             avoid_text = f"\n\nDo NOT repeat or paraphrase any of these — you already said them:\n" + "\n".join(f"- \"{f}\"" for f in self.recent_fillers[-3:])
 
-        prompt = f"""There's a pause in play. Fill the air with something interesting.
+        prompt = f"""There's a pause in play. Have a conversation about something interesting.
 
 YOUR TOPIC THIS TIME: {forced_topic}
 
@@ -268,40 +252,30 @@ Recent deliveries:
 {recent_text}{avoid_text}
 
 Rules:
-- 1-2 sentences ONLY. Quick, natural, conversational.
-- STICK TO THE ASSIGNED TOPIC. Do not talk about something else.
+- 2-4 sentences total. Two or three of you should contribute — one raises a point, the others respond.
+- STICK TO THE ASSIGNED TOPIC.
 - Reference specific numbers from the stats provided.
-- Harsha style: the stat is the entry point, tell us what it MEANS.
+- Make it a real conversation — agree, disagree, build on each other's points.
 - Write for SPEECH.
 
 Respond in the same format:
-[emotion: <emotion>]
-<your filler here>"""
+[HARSHA, <emotion>] <commentary>
+[NASSER, <emotion>] <commentary>
+[IAN, <emotion>] <commentary>"""
 
-        for attempt in range(3):
-            try:
-                response = await self.client.messages.create(
-                    model=CLAUDE_MODEL,
-                    max_tokens=200,
-                    system=COMMENTARY_SYSTEM_PROMPT,
-                    messages=[{"role": "user", "content": prompt}],
-                )
-                break
-            except anthropic.RateLimitError:
-                wait = 2 ** attempt * 3
-                await asyncio.sleep(wait)
-        else:
-            return EnhancedCommentary(text="", emotion="neutral")
+        raw_response = await self._call_claude(prompt, max_tokens=300)
+        if not raw_response:
+            return [EnhancedCommentary(text="", emotion="neutral", speaker=self._lead_speaker)]
 
-        raw_response = response.content[0].text.strip()
-        emotion, text = self._parse_response(raw_response)
+        segments = self._parse_response(raw_response)
 
-        if text:
-            self.recent_fillers.append(text)
-            if len(self.recent_fillers) > 5:
-                self.recent_fillers.pop(0)
+        for seg in segments:
+            if seg.text:
+                self.recent_fillers.append(f"[{seg.speaker.upper()}] {seg.text}")
+        if len(self.recent_fillers) > 5:
+            self.recent_fillers = self.recent_fillers[-5:]
 
-        return EnhancedCommentary(text=text, emotion=emotion)
+        return segments
 
     # Common TTS pronunciation fixes: pattern -> spoken form
     _TTS_FIXES = [
@@ -331,18 +305,56 @@ Respond in the same format:
             text = pattern.sub(replacement, text)
         return text
 
-    def _parse_response(self, raw: str) -> tuple:
-        """Extract emotion tag and commentary from Claude's response."""
-        emotion_match = re.match(r'\[emotion:\s*(\w+)\]\s*', raw)
+    # Regex for [SPEAKER, emotion] format
+    _DUAL_TAG_RE = re.compile(r'\[(HARSHA|NASSER|IAN),\s*(\w+)\]\s*', re.IGNORECASE)
+    # Fallback regex for old [emotion: xxx] format
+    _SINGLE_TAG_RE = re.compile(r'\[emotion:\s*(\w+)\]\s*')
+
+    def _parse_response(self, raw: str) -> list[EnhancedCommentary]:
+        """Parse dual-commentator response into list of segments."""
+        matches = list(self._DUAL_TAG_RE.finditer(raw))
+
+        if matches:
+            segments = []
+            for i, m in enumerate(matches):
+                speaker = m.group(1).lower()
+                emotion = m.group(2).lower()
+                start = m.end()
+                end = matches[i + 1].start() if i + 1 < len(matches) else len(raw)
+                text = raw[start:end].strip()
+                if text:
+                    segments.append(EnhancedCommentary(
+                        speaker=speaker,
+                        text=self._fix_tts_text(text),
+                        emotion=emotion,
+                    ))
+            if segments:
+                return segments
+
+        # Fallback: old single-speaker format or untagged text
+        emotion_match = self._SINGLE_TAG_RE.match(raw)
         if emotion_match:
             emotion = emotion_match.group(1).lower()
             text = raw[emotion_match.end():].strip()
-            return emotion, self._fix_tts_text(text)
-        return "neutral", self._fix_tts_text(raw)
+        else:
+            emotion = "neutral"
+            text = raw.strip()
+
+        if text:
+            return [EnhancedCommentary(
+                speaker=self._lead_speaker,
+                text=self._fix_tts_text(text),
+                emotion=emotion,
+            )]
+        return [EnhancedCommentary(speaker=self._lead_speaker, text="", emotion="neutral")]
 
     def _build_prompt(self, raw_text: str, match_context: str, over: str,
                       player_stats: str = "", ball_data: dict | None = None) -> str:
         parts = []
+
+        # Tell Claude who should lead this ball
+        lead = self._lead_speaker.upper()
+        parts.append(f"Lead commentator this ball: {lead} (describe the action first; the others may add if they have something to say)")
 
         if match_context:
             parts.append(f"Match situation:\n{match_context}")
@@ -383,9 +395,9 @@ Respond in the same format:
         parts.append(f"Ball update: {raw_text}")
 
         if self.recent_history:
-            last_few = self.recent_history[-3:]
+            last_few = self.recent_history[-4:]
             parts.append(
-                "Your last few lines (continue the narrative naturally — connect to what you just said, don't restart fresh each ball):\n"
+                "Your last few exchanges (continue the conversation naturally — connect to what was just said):\n"
                 + "\n".join(f"- {line}" for line in last_few)
             )
 

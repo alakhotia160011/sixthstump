@@ -1,5 +1,3 @@
-import io
-import struct
 from typing import Optional
 from cartesia import Cartesia
 from config import CARTESIA_API_KEY, CARTESIA_VOICE_ID
@@ -18,7 +16,8 @@ class CommentaryTTS:
             "sample_rate": self.sample_rate,
         }
 
-    def synthesize(self, text: str, emotion: str = "neutral") -> bytes:
+    def synthesize(self, text: str, emotion: str = "neutral",
+                   voice_id: Optional[str] = None, language: Optional[str] = None) -> bytes:
         """Convert text to raw PCM audio bytes (float32, 44100 Hz, mono)."""
         # Ensure text ends with punctuation to prevent TTS repeating the last word
         clean = text.strip()
@@ -28,9 +27,9 @@ class CommentaryTTS:
         kwargs = dict(
             model_id="sonic-3",
             transcript=clean,
-            voice={"mode": "id", "id": self.voice_id},
+            voice={"mode": "id", "id": voice_id or self.voice_id},
             output_format=self.output_format,
-            language="hi",
+            language=language or "hi",
         )
 
         # Add emotion, speed, and volume controls for sonic-3
@@ -62,35 +61,3 @@ class CommentaryTTS:
         "determined":    {"emotion": "determined:highest",    "speed": 0.9,  "volume": 1.5},
     }
 
-    def synthesize_to_wav(self, text: str) -> bytes:
-        """Convert text to a complete WAV file in memory."""
-        pcm_data = self.synthesize(text)
-        return self._pcm_to_wav(pcm_data)
-
-    def _pcm_to_wav(self, pcm_data: bytes) -> bytes:
-        """Wrap raw PCM float32 data in a WAV header."""
-        num_channels = 1
-        sample_width = 4  # float32 = 4 bytes
-        byte_rate = self.sample_rate * num_channels * sample_width
-        block_align = num_channels * sample_width
-        data_size = len(pcm_data)
-
-        buf = io.BytesIO()
-        # RIFF header
-        buf.write(b"RIFF")
-        buf.write(struct.pack("<I", 36 + data_size))
-        buf.write(b"WAVE")
-        # fmt chunk — format 3 = IEEE float
-        buf.write(b"fmt ")
-        buf.write(struct.pack("<I", 16))
-        buf.write(struct.pack("<H", 3))  # IEEE float
-        buf.write(struct.pack("<H", num_channels))
-        buf.write(struct.pack("<I", self.sample_rate))
-        buf.write(struct.pack("<I", byte_rate))
-        buf.write(struct.pack("<H", block_align))
-        buf.write(struct.pack("<H", sample_width * 8))
-        # data chunk
-        buf.write(b"data")
-        buf.write(struct.pack("<I", data_size))
-        buf.write(pcm_data)
-        return buf.getvalue()
