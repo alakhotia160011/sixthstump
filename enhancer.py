@@ -18,6 +18,7 @@ class CommentaryEnhancer:
     def __init__(self):
         self.client = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
         self.recent_history: list[str] = []  # track recent for variety
+        self.recent_fillers: list[str] = []  # track recent fillers to avoid repetition
 
     async def enhance(self, raw_text: str, match_context: str = "", over: str = "",
                       player_stats: str = "", ball_data: dict | None = None) -> EnhancedCommentary:
@@ -232,12 +233,18 @@ Respond in the same format:
         """Generate between-balls filler — a stat, anecdote, or tactical insight during quiet periods."""
         recent_text = "\n".join(f"- {b}" for b in recent_balls[-6:]) if recent_balls else ""
 
+        avoid_text = ""
+        if self.recent_fillers:
+            avoid_text = f"\n\nYou already said these recently — do NOT repeat or paraphrase them, find a DIFFERENT angle:\n" + "\n".join(f"- \"{f}\"" for f in self.recent_fillers[-3:])
+
         prompt = f"""There's been a quiet spell in the match — a few dot balls or singles. Fill the air with something interesting. Pick ONE of these:
 - A player stat or milestone approaching ("He's on 42 now, just 8 away from his fifty... and at a strike rate of 180, it's been breathtaking")
 - A bowling analysis ("Look at those figures — 2 for 18 in 3 overs, that's been the difference")
 - A partnership breakdown ("This pair have put on 45 already, and they've rotated strike beautifully")
 - A tactical observation about field placement or bowling changes
 - A fall-of-wickets narrative ("They were cruising at 98 for 1, but two quick wickets have changed everything")
+- The match situation and what's at stake
+- A comparison or historical note about one of the players
 
 Match state:
 {match_context}
@@ -245,12 +252,13 @@ Match state:
 {f"Player stats:{chr(10)}{player_stats}" if player_stats else ""}
 
 Recent deliveries:
-{recent_text}
+{recent_text}{avoid_text}
 
 Rules:
 - 1-2 sentences ONLY. Quick, natural, conversational.
 - USE the player stats — reference specific numbers, strike rates, economy rates.
 - Harsha style: the stat is just the entry point, tell us what it MEANS.
+- Pick a DIFFERENT topic and angle each time. Don't lead with the same player or stat twice.
 - Write for SPEECH.
 
 Respond in the same format:
@@ -274,6 +282,12 @@ Respond in the same format:
 
         raw_response = response.content[0].text.strip()
         emotion, text = self._parse_response(raw_response)
+
+        if text:
+            self.recent_fillers.append(text)
+            if len(self.recent_fillers) > 5:
+                self.recent_fillers.pop(0)
+
         return EnhancedCommentary(text=text, emotion=emotion)
 
     # Common TTS pronunciation fixes: pattern -> spoken form
