@@ -19,10 +19,10 @@ class CommentaryEnhancer:
         self.client = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
         self.recent_history: list[str] = []  # track recent for variety
 
-    async def enhance(self, raw_text: str, match_context: str = "", over: str = "") -> EnhancedCommentary:
+    async def enhance(self, raw_text: str, match_context: str = "", over: str = "", player_stats: str = "") -> EnhancedCommentary:
         """Transform a raw commentary entry into vivid spoken commentary."""
 
-        user_prompt = self._build_prompt(raw_text, match_context, over)
+        user_prompt = self._build_prompt(raw_text, match_context, over, player_stats)
 
         # Retry with backoff on rate limits
         for attempt in range(3):
@@ -312,11 +312,14 @@ Respond in the same format:
             return emotion, self._fix_tts_text(text)
         return "neutral", self._fix_tts_text(raw)
 
-    def _build_prompt(self, raw_text: str, match_context: str, over: str) -> str:
+    def _build_prompt(self, raw_text: str, match_context: str, over: str, player_stats: str = "") -> str:
         parts = []
 
         if match_context:
             parts.append(f"Match situation:\n{match_context}")
+
+        if player_stats:
+            parts.append(f"Current players:\n{player_stats}")
 
         if over:
             parts.append(f"Over: {over}")

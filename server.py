@@ -210,7 +210,8 @@ async def run_replay(ws: WebSocket, scraper: CricketScraper, enhancer: Commentar
 
         # Ball commentary — text + audio sent together by worker
         live_context = tracker.get_match_context()
-        result = await enhancer.enhance(entry.text, live_context, over=entry.over)
+        current_stats = tracker.get_current_player_stats(entry.text, current_innings)
+        result = await enhancer.enhance(entry.text, live_context, over=entry.over, player_stats=current_stats)
         ball_data = {
             "runs": entry.total_runs,
             "batsmanRuns": entry.batsman_runs,
@@ -345,7 +346,8 @@ async def run_live(ws: WebSocket, scraper: CricketScraper, enhancer: CommentaryE
                         sc_msg = {"type": "scorecard", "innings": live_sc}
                         await sync_queue.put((sc_msg, None, None))
 
-                    result = await enhancer.enhance(entry.text, match_context, over=entry.over)
+                    current_stats = scraper.get_current_player_stats(entry.text)
+                    result = await enhancer.enhance(entry.text, match_context, over=entry.over, player_stats=current_stats)
                     ball_data = {
                         "runs": entry.total_runs,
                         "batsmanRuns": entry.batsman_runs,
