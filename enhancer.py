@@ -16,13 +16,13 @@ logger = logging.getLogger(__name__)
 class EnhancedCommentary:
     text: str
     emotion: str  # e.g. "excited", "calm", "triumphant"
-    speaker: str = "harsha"  # "harsha", "nasser", or "ian"
+    speaker: str = "ravi"  # "ravi", "nasser", or "ian"
 
 
 class CommentaryEnhancer:
     """Takes dry commentary text and makes it dramatic using Claude - three commentator mode."""
 
-    _SPEAKERS = ["harsha", "nasser", "ian"]
+    _SPEAKERS = ["ravi", "nasser", "ian"]
 
     def __init__(self):
         self.client = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
@@ -104,13 +104,13 @@ Rules:
 - Write for SPEECH.
 
 Respond in the same format:
-[HARSHA, <emotion>] <commentary>
+[RAVI, <emotion>] <commentary>
 [NASSER, <emotion>] <commentary>
 [IAN, <emotion>] <commentary>"""
 
         raw_response = await self._call_claude(prompt, max_tokens=500)
         if not raw_response:
-            return [EnhancedCommentary(text="", emotion="neutral", speaker="harsha")]
+            return [EnhancedCommentary(text="", emotion="neutral", speaker="ravi")]
 
         return self._parse_response(raw_response)
 
@@ -124,8 +124,8 @@ Match details:
 {f"Current state: {match_context}" if match_context else ""}
 
 Rules:
-- Harsha opens, Nasser and Ian add their takes. Like a real broadcast opening.
-- Mention "sixthstump" somewhere - weave it in naturally. Examples: "This is sixthstump, I'm Harsha Bhogle, alongside Nasser Hussain and Ian Smith..." or end with "...stay with us, right here on sixthstump."
+- Ravi opens with his booming voice, Nasser and Ian add their takes. Like a real broadcast opening.
+- Mention "sixthstump" somewhere - weave it in naturally. Examples: "This is sixthstump, I'm Ravi Shastri, alongside Nasser Hussain and Ian Smith..." or end with "...stay with us, right here on sixthstump."
 - 5-7 sentences total across all three. Punchy, vivid, sets the tone.
 - Paint the picture: the stadium, the atmosphere.
 - Mention both teams and the stakes naturally.
@@ -134,13 +134,13 @@ Rules:
 - Do NOT use cliché openers like "ladies and gentlemen" or "welcome to".
 
 Respond in the same format:
-[HARSHA, <emotion>] <commentary>
+[RAVI, <emotion>] <commentary>
 [NASSER, <emotion>] <commentary>
 [IAN, <emotion>] <commentary>"""
 
         raw_response = await self._call_claude(intro_prompt, max_tokens=600)
         if not raw_response:
-            return [EnhancedCommentary(text="", emotion="neutral", speaker="harsha")]
+            return [EnhancedCommentary(text="", emotion="neutral", speaker="ravi")]
 
         return self._parse_response(raw_response)
 
@@ -164,7 +164,7 @@ Rules:
 - Write for SPEECH.
 
 Respond in the same format:
-[HARSHA, <emotion>] <commentary>
+[RAVI, <emotion>] <commentary>
 or
 [NASSER, <emotion>] <commentary>
 or
@@ -205,7 +205,7 @@ Rules:
 - Write for SPEECH.
 
 Respond in the same format:
-[HARSHA, <emotion>] <commentary>
+[RAVI, <emotion>] <commentary>
 [NASSER, <emotion>] <commentary>
 [IAN, <emotion>] <commentary>"""
 
@@ -259,7 +259,7 @@ Rules:
 - Write for SPEECH.
 
 Respond in the same format:
-[HARSHA, <emotion>] <commentary>
+[RAVI, <emotion>] <commentary>
 [NASSER, <emotion>] <commentary>
 [IAN, <emotion>] <commentary>"""
 
@@ -306,7 +306,7 @@ Respond in the same format:
         return text
 
     # Regex for [SPEAKER, emotion] format
-    _DUAL_TAG_RE = re.compile(r'\[(HARSHA|NASSER|IAN),\s*(\w+)\]\s*', re.IGNORECASE)
+    _DUAL_TAG_RE = re.compile(r'\[(RAVI|NASSER|IAN),\s*(\w+)\]\s*', re.IGNORECASE)
     # Fallback regex for old [emotion: xxx] format
     _SINGLE_TAG_RE = re.compile(r'\[emotion:\s*(\w+)\]\s*')
 

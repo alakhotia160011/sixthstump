@@ -98,6 +98,11 @@ async def fetch_matches() -> list[dict]:
         if not m.get("hasCommentary") and state != "PRE":
             continue
 
+        # Skip Test matches - only support ODIs and T20s
+        match_format = (m.get("format") or "").upper()
+        if match_format == "TEST":
+            continue
+
         series = m.get("series", {})
         ground = m.get("ground", {})
         teams = m.get("teams", [])

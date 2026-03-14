@@ -80,7 +80,7 @@ def create_sync_worker(ws: WebSocket, tts: CommentaryTTS, stop_event: asyncio.Ev
 
             # Synthesize audio with speaker-specific voice
             audio_b64 = None
-            voice_cfg = VOICE_CONFIG.get(speaker or "harsha", VOICE_CONFIG["harsha"])
+            voice_cfg = VOICE_CONFIG.get(speaker or "ravi", VOICE_CONFIG["ravi"])
             try:
                 pcm = await asyncio.to_thread(
                     tts.synthesize, tts_text, tts_emotion,

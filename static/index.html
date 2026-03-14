@@ -470,7 +470,7 @@
   .entry.error   { border-left-color: #D64545; background: #FDF5F5; }
 
   /* Speaker-specific border colors (override tag colors) */
-  .entry.speaker-harsha { border-left-color: #B8862D !important; }
+  .entry.speaker-ravi   { border-left-color: #C84B31 !important; }
   .entry.speaker-nasser { border-left-color: #5B7BB5 !important; }
   .entry.speaker-ian    { border-left-color: #2E8B57 !important; }
   .speaker-badge {
@@ -481,9 +481,9 @@
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
-  .speaker-badge.harsha {
-    background: rgba(226, 176, 126, 0.15);
-    color: #B8862D;
+  .speaker-badge.ravi {
+    background: rgba(200, 75, 49, 0.12);
+    color: #C84B31;
   }
   .speaker-badge.nasser {
     background: rgba(91, 123, 181, 0.12);
@@ -990,7 +990,7 @@
 
       <div class="about-section">
         <h3>Why sixthstump?</h3>
-        <p>Cricket commentary is an art form. The way Harsha Bhogle builds a narrative, the way Nasser Hussain reads the game, the way Ian Bishop captures a moment. It turns a sport into a story. I wanted to see if AI could capture even a fraction of that magic.</p>
+        <p>Cricket commentary is an art form. The way Ravi Shastri brings the drama, the way Nasser Hussain reads the game, the way Ian Smith captures a moment. It turns a sport into a story. I wanted to see if AI could capture even a fraction of that magic.</p>
         <p style="margin-top:10px">This started as a weekend experiment born from two things: a deep love for the game, and curiosity about where voice AI is headed. I wanted to explore how far text to speech has come, understand the APIs behind real time sports data, and build something that actually feels like sitting down and watching cricket with great commentators.</p>
       </div>
 
@@ -1006,7 +1006,7 @@
           <li><strong>ESPNcricinfo</strong> provides the raw ball by ball data, scraped in real time as each delivery happens</li>
           <li><strong>Python / FastAPI</strong> powers the backend server, orchestrating the scraping, commentary generation, and audio streaming pipeline</li>
           <li><strong>Claude API</strong> takes each delivery and generates multi voice commentary with emotion, context, and natural banter between commentators</li>
-          <li><strong>Cartesia TTS</strong> synthesizes speech with three distinct commentator voices (Harsha, Nasser, and Ian), each with unique tone and pacing</li>
+          <li><strong>Cartesia TTS</strong> synthesizes speech with three distinct commentator voices (Ravi, Nasser, and Ian), each with unique tone and pacing</li>
           <li><strong>WebSockets</strong> stream audio and text to the browser in real time so commentary plays in sync with the action</li>
           <li><strong>Web Audio API</strong> handles playback on the client, queuing and decoding audio segments for seamless, gapless commentary</li>
         </ul>
@@ -1338,7 +1338,7 @@ function addEntry(tag, text, emotion, over, ballData, score, speaker, overStats)
   }
 
   const spk = speaker || '';
-  const speakerNames = { harsha: 'Harsha', nasser: 'Nasser', ian: 'Ian' };
+  const speakerNames = { ravi: 'Ravi', nasser: 'Nasser', ian: 'Ian' };
   const speakerBadge = spk ? `<span class="speaker-badge ${esc(spk)}">${esc(speakerNames[spk] || spk)}</span>` : '';
 
   const div = document.createElement('div');

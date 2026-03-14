@@ -48,7 +48,7 @@ async def run(match_url: str, replay: bool = False):
                     continue
                 print(f"[{seg.speaker}] ({seg.emotion}) {seg.text}")
                 try:
-                    vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["harsha"])
+                    vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["ravi"])
                     pcm_audio = tts.synthesize(seg.text, emotion=seg.emotion,
                                                voice_id=vcfg["voice_id"], language=vcfg["language"], speaker=seg.speaker)
                     player.play_with_pause(pcm_audio, pause_after=1.5)
@@ -85,7 +85,7 @@ async def run(match_url: str, replay: bool = False):
                                 continue
                             print(f"[{seg.speaker}] ({seg.emotion}) {seg.text}")
                             try:
-                                vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["harsha"])
+                                vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["ravi"])
                                 pcm_audio = tts.synthesize(seg.text, emotion=seg.emotion,
                                                            voice_id=vcfg["voice_id"], language=vcfg["language"], speaker=seg.speaker)
                                 player.play_with_pause(pcm_audio, pause_after=2.0)
@@ -114,7 +114,7 @@ async def run(match_url: str, replay: bool = False):
                                     continue
                                 print(f"[{seg.speaker}] ({seg.emotion}) {seg.text}")
                                 try:
-                                    vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["harsha"])
+                                    vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["ravi"])
                                     pcm_audio = tts.synthesize(seg.text, emotion=seg.emotion,
                                                                voice_id=vcfg["voice_id"], language=vcfg["language"], speaker=seg.speaker)
                                     player.play_with_pause(pcm_audio, pause_after=1.2)
@@ -131,7 +131,7 @@ async def run(match_url: str, replay: bool = False):
                                     continue
                                 print(f"[{seg.speaker}] ({seg.emotion}) {seg.text}")
                                 try:
-                                    vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["harsha"])
+                                    vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["ravi"])
                                     pcm_audio = tts.synthesize(seg.text, emotion=seg.emotion,
                                                                voice_id=vcfg["voice_id"], language=vcfg["language"], speaker=seg.speaker)
                                     player.play_with_pause(pcm_audio, pause_after=1.0)
@@ -156,7 +156,7 @@ async def run(match_url: str, replay: bool = False):
                     continue
                 print(f"[{seg.speaker}] ({seg.emotion}) {seg.text}")
                 try:
-                    vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["harsha"])
+                    vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["ravi"])
                     pcm_audio = tts.synthesize(seg.text, emotion=seg.emotion,
                                                voice_id=vcfg["voice_id"], language=vcfg["language"], speaker=seg.speaker)
                     player.play_with_pause(pcm_audio, pause_after=0.8)
@@ -177,7 +177,7 @@ async def run(match_url: str, replay: bool = False):
                         continue
                     print(f"[{seg.speaker}] ({seg.emotion}) {seg.text}")
                     try:
-                        vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["harsha"])
+                        vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["ravi"])
                         pcm_audio = tts.synthesize(seg.text, emotion=seg.emotion,
                                                    voice_id=vcfg["voice_id"], language=vcfg["language"], speaker=seg.speaker)
                         player.play_with_pause(pcm_audio, pause_after=0.6)
@@ -203,7 +203,7 @@ async def run(match_url: str, replay: bool = False):
                     continue
                 print(f"[{seg.speaker}] ({seg.emotion}) {seg.text}")
                 try:
-                    vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["harsha"])
+                    vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["ravi"])
                     pcm_audio = tts.synthesize(seg.text, emotion=seg.emotion,
                                                voice_id=vcfg["voice_id"], language=vcfg["language"], speaker=seg.speaker)
                     player.play_with_pause(pcm_audio, pause_after=1.5)
@@ -250,7 +250,7 @@ async def run(match_url: str, replay: bool = False):
                                             continue
                                         print(f"[{seg.speaker}] ({seg.emotion}) {seg.text}")
                                         try:
-                                            vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["harsha"])
+                                            vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["ravi"])
                                             pcm_audio = tts.synthesize(seg.text, emotion=seg.emotion,
                                                                        voice_id=vcfg["voice_id"], language=vcfg["language"], speaker=seg.speaker)
                                             player.play_with_pause(pcm_audio, pause_after=1.2)
@@ -270,7 +270,7 @@ async def run(match_url: str, replay: bool = False):
                                 continue
                             print(f"[{seg.speaker}] ({seg.emotion}) {seg.text}")
                             try:
-                                vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["harsha"])
+                                vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["ravi"])
                                 pcm_audio = tts.synthesize(seg.text, emotion=seg.emotion,
                                                            voice_id=vcfg["voice_id"], language=vcfg["language"], speaker=seg.speaker)
                                 player.play_with_pause(pcm_audio, pause_after=0.8)
@@ -295,7 +295,7 @@ async def run(match_url: str, replay: bool = False):
                                 continue
                             print(f"[{seg.speaker}] ({seg.emotion}) {seg.text}")
                             try:
-                                vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["harsha"])
+                                vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["ravi"])
                                 pcm_audio = tts.synthesize(seg.text, emotion=seg.emotion,
                                                            voice_id=vcfg["voice_id"], language=vcfg["language"], speaker=seg.speaker)
                                 player.play_with_pause(pcm_audio, pause_after=0.6)
