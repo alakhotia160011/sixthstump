@@ -35,7 +35,7 @@
     flex-direction: column;
   }
 
-  /* ── Nav ── */
+  /*Nav */
   nav {
     background: var(--dark-green);
     padding: 0 clamp(16px, 4vw, 48px);
@@ -86,11 +86,11 @@
     50% { opacity: 0.3; }
   }
 
-  /* ── Views ── */
+  /*Views */
   .view { display: none; flex-direction: column; flex: 1; overflow: hidden; }
   .view.active { display: flex; }
 
-  /* ── Match Browser ── */
+  /*Match Browser */
   .browser-header {
     background: var(--white);
     border-bottom: 1px solid var(--border);
@@ -322,7 +322,7 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* ── Commentary View ── */
+  /*Commentary View */
   .commentary-header {
     background: var(--white);
     border-bottom: 1px solid var(--border);
@@ -374,7 +374,7 @@
     color: var(--text-light);
   }
 
-  /* ── Scoreboard ── */
+  /*Scoreboard */
   .scoreboard {
     display: none;
     background: var(--dark-green);
@@ -446,7 +446,7 @@
   .feed::-webkit-scrollbar-track { background: transparent; }
   .feed::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
-  /* ── Entry cards ── */
+  /*Entry cards */
   .entry {
     padding: 14px 18px;
     border-radius: 10px;
@@ -534,7 +534,7 @@
     letter-spacing: 0.3px;
     white-space: nowrap;
   }
-  /* ── Run indicator (left of ball entry) ── */
+  /*Run indicator (left of ball entry) */
   .entry.ball {
     display: flex;
     gap: 14px;
@@ -569,7 +569,7 @@
     min-width: 0;
   }
 
-  /* ── Over recap card (Google Cricket style) ── */
+  /*Over recap card (Google Cricket style) */
   .over-recap {
     background: #F0EDEA;
     border-radius: 10px;
@@ -645,7 +645,7 @@
   .empty-state h3 { font-size: 16px; font-weight: 600; color: var(--text-mid); }
   .empty-state p { font-size: 14px; max-width: 360px; line-height: 1.5; }
 
-  /* ── URL input bar (fallback) ── */
+  /*URL input bar (fallback) */
   .url-bar {
     background: var(--white);
     border-bottom: 1px solid var(--border);
@@ -675,7 +675,7 @@
   .url-bar input:focus { border-color: var(--mid-green); }
   .url-bar input::placeholder { color: var(--text-light); }
 
-  /* ── Responsive ── */
+  /*Responsive */
   @media (max-width: 640px) {
     nav { height: 56px; }
     .nav-brand h1 { font-size: 18px; }
@@ -700,7 +700,7 @@
   </div>
 </nav>
 
-<!-- ── Match Browser View ── -->
+<!-- Match Browser View -->
 <div class="view active" id="browserView">
   <div class="browser-header">
     <div class="browser-header-inner">
@@ -725,7 +725,7 @@
   </div>
 </div>
 
-<!-- ── Commentary View ── -->
+<!-- Commentary View -->
 <div class="view" id="commentaryView">
   <div class="commentary-header">
     <div class="commentary-header-inner">
@@ -797,16 +797,14 @@ let activeAudioSources = []; // track playing/scheduled sources for stop
 let pendingTimers = []; // track setTimeout IDs so we can cancel on stop/back
 let sessionId = 0; // incremented on each new match to discard stale callbacks
 
-// ── Status ──
-function setStatus(text, state) {
+//Statusfunction setStatus(text, state) {
   document.getElementById('statusText').textContent = text;
   const dot = document.getElementById('statusDot');
   dot.className = 'status-dot';
   if (state) dot.classList.add(state);
 }
 
-// ── Match Browser ──
-async function loadMatches() {
+//Match Browserasync function loadMatches() {
   try {
     const resp = await fetch('/api/matches');
     const data = await resp.json();
@@ -900,8 +898,7 @@ function renderMatches() {
   }).join('');
 }
 
-// ── View switching ──
-function showBrowser() {
+//View switchingfunction showBrowser() {
   stopCommentary();
   document.getElementById('browserView').classList.add('active');
   document.getElementById('commentaryView').classList.remove('active');
@@ -938,7 +935,7 @@ function showCommentary(title, series, teams) {
       ${i > 0 ? '<div class="scoreboard-sep"></div>' : ''}
       <div class="scoreboard-innings">
         <span class="scoreboard-team">${teamLogoImg(t.id, 18)} ${esc(t.abbreviation || t.name)}</span>
-        <span class="scoreboard-score">—</span>
+        <span class="scoreboard-score">-</span>
       </div>
     `).join('');
   } else {
@@ -967,8 +964,7 @@ function stopAndGoBack() {
   showBrowser();
 }
 
-// ── Commentary ──
-function getBallLabel(bd) {
+//Commentaryfunction getBallLabel(bd) {
   if (!bd) return '';
   if (bd.isWicket) return 'W';
   if (bd.wides) return `${bd.runs}wd`;
@@ -1205,7 +1201,7 @@ function handleMessage(msg) {
 function resumeCommentary() {
   if (!lastMatchUrl) return;
   document.getElementById('resumeBtn').style.display = 'none';
-  // Don't clear the feed — keep existing commentary
+  // Don't clear the feed - keep existing commentary
   if (!audioCtx) {
     audioCtx = new AudioContext({ sampleRate: SAMPLE_RATE });
   }

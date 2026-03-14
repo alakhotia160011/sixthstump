@@ -20,7 +20,7 @@ class EnhancedCommentary:
 
 
 class CommentaryEnhancer:
-    """Takes dry commentary text and makes it dramatic using Claude — three commentator mode."""
+    """Takes dry commentary text and makes it dramatic using Claude - three commentator mode."""
 
     _SPEAKERS = ["harsha", "nasser", "ian"]
 
@@ -90,7 +90,7 @@ class CommentaryEnhancer:
         return segments
 
     async def generate_innings_break(self, match_context: str) -> list[EnhancedCommentary]:
-        """Generate a spoken innings break summary — both commentators discuss."""
+        """Generate a spoken innings break summary - both commentators discuss."""
         prompt = f"""It's the innings break. Have a conversation about what just happened and set up the chase/second innings.
 
 Match state:
@@ -98,9 +98,9 @@ Match state:
 
 Rules:
 - 4-6 sentences total across all of you. Recap the key moments, the score, and what the chasing team needs.
-- All three commentators should contribute — one recaps, the others analyze or add opinion.
+- All three commentators should contribute - one recaps, the others analyze or add opinion.
 - Build anticipation for the second innings.
-- Reference specific numbers — the total, key performers if you know them.
+- Reference specific numbers - the total, key performers if you know them.
 - Write for SPEECH.
 
 Respond in the same format:
@@ -115,8 +115,8 @@ Respond in the same format:
         return self._parse_response(raw_response)
 
     async def generate_intro(self, match_intro: str, match_context: str = "") -> list[EnhancedCommentary]:
-        """Generate a spoken match introduction — both commentators open the broadcast."""
-        intro_prompt = f"""You're opening the broadcast together for this match. Set the scene — the tournament, the venue, the teams, the stakes.
+        """Generate a spoken match introduction - both commentators open the broadcast."""
+        intro_prompt = f"""You're opening the broadcast together for this match. Set the scene - the tournament, the venue, the teams, the stakes.
 
 Match details:
 {match_intro}
@@ -125,7 +125,7 @@ Match details:
 
 Rules:
 - Harsha opens, Nasser and Ian add their takes. Like a real broadcast opening.
-- Mention "sixthstump" somewhere — weave it in naturally. Examples: "This is sixthstump, I'm Harsha Bhogle, alongside Nasser Hussain and Ian Smith..." or end with "...stay with us, right here on sixthstump."
+- Mention "sixthstump" somewhere - weave it in naturally. Examples: "This is sixthstump, I'm Harsha Bhogle, alongside Nasser Hussain and Ian Smith..." or end with "...stay with us, right here on sixthstump."
 - 5-7 sentences total across all three. Punchy, vivid, sets the tone.
 - Paint the picture: the stadium, the atmosphere.
 - Mention both teams and the stakes naturally.
@@ -177,7 +177,7 @@ or
         return self._parse_response(raw_response)
 
     async def generate_over_summary(self, over_number: int, match_context: str, recent_balls: list[str], player_stats: str = "") -> list[EnhancedCommentary]:
-        """Generate a brief over/phase summary at key milestones — both commentators discuss."""
+        """Generate a brief over/phase summary at key milestones - both commentators discuss."""
         phase = ""
         if over_number == 6:
             phase = "That's the end of the powerplay!"
@@ -215,21 +215,21 @@ Respond in the same format:
 
         return self._parse_response(raw_response)
 
-    # Rotating filler topics — cycle through these to force variety
+    # Rotating filler topics - cycle through these to force variety
     _FILLER_TOPICS = [
-        "Focus on the BATSMAN — their score, strike rate, how they're looking, what milestone is next.",
-        "Focus on the BOWLER — their figures, economy, dot balls, how they've been bowling this spell.",
-        "Talk about the PARTNERSHIP — how many runs, how they're rotating strike, the dynamic between the two batsmen.",
-        "Talk about the MATCH SITUATION — the session, the day, what each team needs from here, the tactical battle.",
-        "Make a TACTICAL observation — what field changes might come, what bowling change you'd make, where the pressure is.",
-        "Talk about a DIFFERENT player — not the current batsman or bowler, but someone else in the innings (a dismissed batsman, a bowler waiting for their next spell).",
+        "Focus on the BATSMAN - their score, strike rate, how they're looking, what milestone is next.",
+        "Focus on the BOWLER - their figures, economy, dot balls, how they've been bowling this spell.",
+        "Talk about the PARTNERSHIP - how many runs, how they're rotating strike, the dynamic between the two batsmen.",
+        "Talk about the MATCH SITUATION - the session, the day, what each team needs from here, the tactical battle.",
+        "Make a TACTICAL observation - what field changes might come, what bowling change you'd make, where the pressure is.",
+        "Talk about a DIFFERENT player - not the current batsman or bowler, but someone else in the innings (a dismissed batsman, a bowler waiting for their next spell).",
     ]
 
     async def generate_filler(self, match_context: str, recent_balls: list[str], player_stats: str = "") -> list[EnhancedCommentary]:
-        """Generate between-balls filler — a conversation between commentators during quiet periods."""
+        """Generate between-balls filler - a conversation between commentators during quiet periods."""
         recent_text = "\n".join(f"- {b}" for b in recent_balls[-6:]) if recent_balls else ""
 
-        # Pick from a shuffled queue — reshuffle when exhausted
+        # Pick from a shuffled queue - reshuffle when exhausted
         if not self._filler_topic_queue:
             self._filler_topic_queue = list(self._FILLER_TOPICS)
             random.shuffle(self._filler_topic_queue)
@@ -237,7 +237,7 @@ Respond in the same format:
 
         avoid_text = ""
         if self.recent_fillers:
-            avoid_text = f"\n\nDo NOT repeat or paraphrase any of these — you already said them:\n" + "\n".join(f"- \"{f}\"" for f in self.recent_fillers[-3:])
+            avoid_text = f"\n\nDo NOT repeat or paraphrase any of these - you already said them:\n" + "\n".join(f"- \"{f}\"" for f in self.recent_fillers[-3:])
 
         prompt = f"""There's a pause in play. Have a conversation about something interesting.
 
@@ -252,10 +252,10 @@ Recent deliveries:
 {recent_text}{avoid_text}
 
 Rules:
-- 2-4 sentences total. Two or three of you should contribute — one raises a point, the others respond.
+- 2-4 sentences total. Two or three of you should contribute - one raises a point, the others respond.
 - STICK TO THE ASSIGNED TOPIC.
 - Reference specific numbers from the stats provided.
-- Make it a real conversation — agree, disagree, build on each other's points.
+- Make it a real conversation - agree, disagree, build on each other's points.
 - Write for SPEECH.
 
 Respond in the same format:
@@ -365,7 +365,7 @@ Respond in the same format:
         if over:
             parts.append(f"Over: {over}")
 
-        # Structured ball outcome — this is the TRUTH, commentary must match
+        # Structured ball outcome - this is the TRUTH, commentary must match
         if ball_data:
             outcome_parts = []
             if ball_data.get("isWicket"):
@@ -386,18 +386,18 @@ Respond in the same format:
             tr = ball_data.get("totalRuns", 0)
             if not outcome_parts:
                 if br == 0 and tr == 0:
-                    outcome_parts.append("Dot ball — no run")
+                    outcome_parts.append("Dot ball - no run")
                 else:
                     outcome_parts.append(f"{br} run(s) off the bat")
             outcome_parts.append(f"Total runs this ball: {tr}")
-            parts.append(f"Ball result (FACTUAL — your commentary MUST match this): {', '.join(outcome_parts)}")
+            parts.append(f"Ball result (FACTUAL - your commentary MUST match this): {', '.join(outcome_parts)}")
 
         parts.append(f"Ball update: {raw_text}")
 
         if self.recent_history:
             last_few = self.recent_history[-4:]
             parts.append(
-                "Your last few exchanges (continue the conversation naturally — connect to what was just said):\n"
+                "Your last few exchanges (continue the conversation naturally - connect to what was just said):\n"
                 + "\n".join(f"- {line}" for line in last_few)
             )
 

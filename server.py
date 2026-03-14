@@ -1,4 +1,4 @@
-"""FastAPI server for sixthstump — streams commentary + audio over WebSocket."""
+"""FastAPI server for sixthstump - streams commentary + audio over WebSocket."""
 
 import asyncio
 import base64
@@ -158,7 +158,7 @@ async def run_replay(ws: WebSocket, scraper: CricketScraper, enhancer: Commentar
         info_parts.append(f"Teams: {' vs '.join(team_names)}")
     tracker.match_info = " | ".join(info_parts)
 
-    await send_msg(ws, {"type": "status", "text": f"Replay mode — {len(entries)} balls"})
+    await send_msg(ws, {"type": "status", "text": f"Replay mode - {len(entries)} balls"})
 
     # Send team info for the scoreboard
     teams_data_sb = (scraper._match or {}).get("teams", [])
@@ -170,7 +170,7 @@ async def run_replay(ws: WebSocket, scraper: CricketScraper, enhancer: Commentar
         team_ids_sb[i + 1] = team.get("objectId", "")
     await send_msg(ws, {"type": "teams", "teams": team_names_sb, "teamIds": team_ids_sb})
 
-    # Sync worker — sends text + audio together in order
+    # Sync worker - sends text + audio together in order
     sync_queue, sync_task = create_sync_worker(ws, tts, stop_event)
 
     # Match intro
@@ -227,7 +227,7 @@ async def run_replay(ws: WebSocket, scraper: CricketScraper, enhancer: Commentar
         ball_count += 1
         tracker.process_entry(entry)
 
-        # Ball commentary — text + audio sent together by worker
+        # Ball commentary - text + audio sent together by worker
         # Scorecard is embedded in the first commentary message so they arrive in sync
         live_context = tracker.get_match_context()
         current_stats = tracker.get_current_player_stats(entry.text, current_innings)
@@ -302,7 +302,7 @@ async def run_live(ws: WebSocket, scraper: CricketScraper, enhancer: CommentaryE
     if live_scorecard:
         await send_msg(ws, {"type": "scorecard", "innings": live_scorecard})
 
-    # Sync worker — sends text + audio together in order
+    # Sync worker - sends text + audio together in order
     sync_queue, sync_task = create_sync_worker(ws, tts, stop_event)
 
     match_intro = await scraper.get_match_intro()
@@ -311,7 +311,7 @@ async def run_live(ws: WebSocket, scraper: CricketScraper, enhancer: CommentaryE
         await _queue_segments(sync_queue, intro_segments, "intro")
 
     if entries:
-        await send_msg(ws, {"type": "status", "text": f"Skipped {len(entries)} existing — waiting for live balls"})
+        await send_msg(ws, {"type": "status", "text": f"Skipped {len(entries)} existing - waiting for live balls"})
 
     await send_msg(ws, {"type": "status", "text": f"Polling every {POLL_INTERVAL}s"})
 
@@ -391,12 +391,12 @@ async def run_live(ws: WebSocket, scraper: CricketScraper, enhancer: CommentaryE
                            "text": status_text}
                     await send_msg(ws, msg)
                 elif empty_polls == 4 and last_ball_text and not is_break:
-                    # First filler — use current player stats
+                    # First filler - use current player stats
                     current_stats = scraper.get_current_player_stats(last_ball_text)
                     filler_segments = await enhancer.generate_filler(match_context, recent_balls, current_stats)
                     await _queue_segments(sync_queue, filler_segments, "filler")
                 elif empty_polls == 10 and last_ball_text and not is_break:
-                    # Second filler — use full innings stats for a different angle
+                    # Second filler - use full innings stats for a different angle
                     full_stats = scraper.get_player_stats()
                     filler_segments = await enhancer.generate_filler(match_context, recent_balls, full_stats)
                     await _queue_segments(sync_queue, filler_segments, "filler")
@@ -436,7 +436,7 @@ async def commentary_ws(websocket: WebSocket):
             return
 
         if not _VALID_URL_RE.match(match_url):
-            await send_msg(websocket, {"type": "error", "text": "Invalid match URL — must be an ESPNcricinfo match page"})
+            await send_msg(websocket, {"type": "error", "text": "Invalid match URL - must be an ESPNcricinfo match page"})
             return
 
         await send_msg(websocket, {"type": "status", "text": "Connecting to ESPNcricinfo..."})

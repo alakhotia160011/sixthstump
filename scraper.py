@@ -38,7 +38,7 @@ class CommentaryEntry:
 # Akamai EdgeAuth token generation for hs-consumer-api
 from config import HSCI_KEY as _HSCI_KEY
 if not _HSCI_KEY:
-    print("[scraper] WARNING: HSCI_KEY not set — ESPNcricinfo API calls will fail with 403")
+    print("[scraper] WARNING: HSCI_KEY not set - ESPNcricinfo API calls will fail with 403")
 _TOKEN_TTL = 60
 
 
@@ -311,7 +311,7 @@ class CricketScraper:
                 status = ""
                 if out:
                     dt = b.get("dismissalText", {})
-                    status = f" — {dt.get('long', 'out')}"
+                    status = f" - {dt.get('long', 'out')}"
                 else:
                     status = " *not out*"
                 lines.append(f"  {name}: {runs}({balls}) [4s:{fours} 6s:{sixes} SR:{sr}]{status}")
@@ -356,7 +356,7 @@ class CricketScraper:
         return "\n".join(lines)
 
     def get_current_player_stats(self, ball_text: str = "", innings_number: int | None = None) -> str:
-        """Return stats for the batsman on strike and the current bowler — for filler commentary."""
+        """Return stats for the batsman on strike and the current bowler - for filler commentary."""
         # Try to extract bowler/batsman names from the ball text (format: "Bowler to Batsman, ...")
         bowler_name = ""
         batsman_name = ""
@@ -406,7 +406,7 @@ class CricketScraper:
                 fours = b.get("fours", 0)
                 sixes = b.get("sixes", 0)
                 sr = b.get("strikerate", 0)
-                lines.append(f"On strike — {name}: {runs}({balls}) [4s:{fours} 6s:{sixes} SR:{sr}]")
+                lines.append(f"On strike - {name}: {runs}({balls}) [4s:{fours} 6s:{sixes} SR:{sr}]")
                 break
 
         # Find bowler stats
@@ -420,7 +420,7 @@ class CricketScraper:
                 w = bw.get("wickets", 0)
                 econ = bw.get("economy", "?")
                 dots = bw.get("dots", 0)
-                lines.append(f"Bowling — {name}: {o}-{c}-{w} (econ {econ}, {dots} dots)")
+                lines.append(f"Bowling - {name}: {o}-{c}-{w} (econ {econ}, {dots} dots)")
                 break
 
         # Current partnership
@@ -431,7 +431,7 @@ class CricketScraper:
             p_balls = p.get("balls", "?")
             p1 = p.get("player1", {}).get("longName", "?")
             p2 = p.get("player2", {}).get("longName", "?")
-            lines.append(f"Partnership — {p1} & {p2}: {p_runs}({p_balls})")
+            lines.append(f"Partnership - {p1} & {p2}: {p_runs}({p_balls})")
 
         return "\n".join(lines)
 
@@ -558,7 +558,7 @@ class CricketScraper:
         return self._parse_comments(all_comments)
 
     async def get_match_context(self) -> str:
-        """Return rich match context for the LLM — score, batsmen, bowler, run rate, etc."""
+        """Return rich match context for the LLM - score, batsmen, bowler, run rate, etc."""
         lines = []
 
         # Match format, series, teams
@@ -657,7 +657,7 @@ class CricketScraper:
             await self._client.aclose()
         print("[scraper] stopped")
 
-    # --- internal helpers ---
+    # internal helpers
 
     def _parse_comments(self, comments: list[dict]) -> list[CommentaryEntry]:
         """Convert raw ESPNcricinfo comment objects into CommentaryEntry list."""

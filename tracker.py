@@ -82,7 +82,7 @@ class ReplayStatTracker:
     def __init__(self):
         self.innings: dict[int, InningsTracker] = {}
         self._current_innings = 1
-        self.match_info: str = ""  # format, series, teams — set once at start
+        self.match_info: str = ""  # format, series, teams - set once at start
 
     def set_innings(self, innings_number: int):
         self._current_innings = innings_number
@@ -123,7 +123,7 @@ class ReplayStatTracker:
             bowler.balls += 1
             bowler._current_over_balls += 1
 
-        # Batsman runs (from API — accurate)
+        # Batsman runs (from API - accurate)
         batsman.runs += entry.batsman_runs
 
         if entry.is_four:
@@ -182,10 +182,10 @@ class ReplayStatTracker:
                 bat_key = names[1].strip().lower()
 
         if bat_key and bat_key in inn.batsmen:
-            lines.append(f"On strike — {inn.batsmen[bat_key]}")
+            lines.append(f"On strike - {inn.batsmen[bat_key]}")
 
         if bowl_key and bowl_key in inn.bowlers:
-            lines.append(f"Bowling — {inn.bowlers[bowl_key]}")
+            lines.append(f"Bowling - {inn.bowlers[bowl_key]}")
 
         return "\n".join(lines)
 
@@ -196,7 +196,7 @@ class ReplayStatTracker:
         if not inn:
             return ""
 
-        lines = [f"=== Innings {inn_num} — {inn.total_runs}/{inn.total_wickets} ({inn.overs} ov, RR: {inn.run_rate}) ==="]
+        lines = [f"=== Innings {inn_num} - {inn.total_runs}/{inn.total_wickets} ({inn.overs} ov, RR: {inn.run_rate}) ==="]
 
         active = [b for b in inn.batsmen.values() if b.balls > 0]
         if active:

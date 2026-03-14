@@ -34,9 +34,9 @@ async def run(match_url: str, replay: bool = False):
         # Replay mode: fetch ALL commentary across all innings
         entries = await scraper.get_all_entries()
         match_intro = await scraper.get_match_intro()
-        print(f"[main] replay mode — commentating on {len(entries)} entries\n")
+        print(f"[main] replay mode - commentating on {len(entries)} entries\n")
 
-        # Ball-by-ball stat tracker — avoids using end-of-match API stats
+        # Ball-by-ball stat tracker - avoids using end-of-match API stats
         tracker = ReplayStatTracker()
 
         # Generate and play match introduction
@@ -98,14 +98,14 @@ async def run(match_url: str, replay: bool = False):
                         tracker.set_innings(current_innings)
                         ball_count = 0
 
-                    # Over change — always give a score update
+                    # Over change - always give a score update
                     # Display over = raw + 1 (0.x = over 1, 5.x = over 6)
                     elif prev_int != cur_int:
                         display_over = prev_int + 1
                         # Milestone overs get an extended summary
                         if prev_int in enhancer.MILESTONE_OVERS and prev_int not in summaries_done:
                             summaries_done.add(prev_int)
-                            print(f"[main] --- over {display_over} summary ---")
+                            print(f"[main] over {display_over} summary")
                             player_stats = tracker.get_player_stats(current_innings)
                             tracker_context = tracker.get_match_context()
                             summary_segments = await enhancer.generate_over_summary(display_over, tracker_context, recent_balls, player_stats)
@@ -122,7 +122,7 @@ async def run(match_url: str, replay: bool = False):
                                     print(f"[tts] summary error: {e}")
                             print()
                         else:
-                            # Regular over change — quick score + batsmen update
+                            # Regular over change - quick score + batsmen update
                             current_stats = tracker.get_current_player_stats(entry.text, current_innings)
                             tracker_context = tracker.get_match_context()
                             score_segments = await enhancer.generate_score_update(display_over, tracker_context, current_stats)
@@ -167,7 +167,7 @@ async def run(match_url: str, replay: bool = False):
             if len(recent_balls) > 12:
                 recent_balls.pop(0)
 
-            # Filler every 3 balls — stats, insight, or tactical observation
+            # Filler every 3 balls - stats, insight, or tactical observation
             if ball_count % 3 == 0:
                 current_stats = tracker.get_current_player_stats(entry.text, current_innings)
                 tracker_context = tracker.get_match_context()
@@ -212,8 +212,8 @@ async def run(match_url: str, replay: bool = False):
             print()
 
         if entries:
-            print(f"[main] skipped {len(entries)} existing entries — waiting for live balls")
-        print(f"[main] polling every {POLL_INTERVAL}s — press Ctrl+C to stop\n")
+            print(f"[main] skipped {len(entries)} existing entries - waiting for live balls")
+        print(f"[main] polling every {POLL_INTERVAL}s - press Ctrl+C to stop\n")
 
         empty_polls = 0  # consecutive polls with no new balls
         prev_over = None
@@ -227,7 +227,7 @@ async def run(match_url: str, replay: bool = False):
                 match_context = await scraper.get_match_context()
 
                 if entries:
-                    empty_polls = 0  # reset — we got new data
+                    empty_polls = 0  # reset - we got new data
 
                     for entry in entries:
                         if stop_event.is_set():
@@ -242,7 +242,7 @@ async def run(match_url: str, replay: bool = False):
                                 cur_int = int(cur_over_num)
                                 if prev_int != cur_int and prev_int in enhancer.MILESTONE_OVERS and prev_int not in summaries_done:
                                     summaries_done.add(prev_int)
-                                    print(f"[main] --- over {prev_int} summary ---")
+                                    print(f"[main] over {prev_int} summary")
                                     player_stats = scraper.get_player_stats()
                                     summary_segments = await enhancer.generate_over_summary(prev_int, match_context, recent_balls, player_stats)
                                     for seg in summary_segments:
@@ -283,7 +283,7 @@ async def run(match_url: str, replay: bool = False):
 
                         print()
                 else:
-                    # No new ball — dead air between deliveries
+                    # No new ball - dead air between deliveries
                     empty_polls += 1
 
                     # After 3+ empty polls (~24s), fill the gap with insight
