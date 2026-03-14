@@ -19,10 +19,11 @@ class CommentaryEnhancer:
         self.client = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
         self.recent_history: list[str] = []  # track recent for variety
 
-    async def enhance(self, raw_text: str, match_context: str = "", over: str = "", player_stats: str = "") -> EnhancedCommentary:
+    async def enhance(self, raw_text: str, match_context: str = "", over: str = "",
+                      player_stats: str = "", ball_data: dict | None = None) -> EnhancedCommentary:
         """Transform a raw commentary entry into vivid spoken commentary."""
 
-        user_prompt = self._build_prompt(raw_text, match_context, over, player_stats)
+        user_prompt = self._build_prompt(raw_text, match_context, over, player_stats, ball_data)
 
         # Retry with backoff on rate limits
         for attempt in range(3):
@@ -312,7 +313,8 @@ Respond in the same format:
             return emotion, self._fix_tts_text(text)
         return "neutral", self._fix_tts_text(raw)
 
-    def _build_prompt(self, raw_text: str, match_context: str, over: str, player_stats: str = "") -> str:
+    def _build_prompt(self, raw_text: str, match_context: str, over: str,
+                      player_stats: str = "", ball_data: dict | None = None) -> str:
         parts = []
 
         if match_context:
@@ -323,6 +325,33 @@ Respond in the same format:
 
         if over:
             parts.append(f"Over: {over}")
+
+        # Structured ball outcome — this is the TRUTH, commentary must match
+        if ball_data:
+            outcome_parts = []
+            if ball_data.get("isWicket"):
+                outcome_parts.append("WICKET!")
+            if ball_data.get("isSix"):
+                outcome_parts.append("SIX!")
+            elif ball_data.get("isFour"):
+                outcome_parts.append("FOUR!")
+            if ball_data.get("wides"):
+                outcome_parts.append(f"Wide ({ball_data['wides']} extra)")
+            if ball_data.get("noballs"):
+                outcome_parts.append(f"No-ball ({ball_data['noballs']} extra)")
+            if ball_data.get("legbyes"):
+                outcome_parts.append(f"{ball_data['legbyes']} leg bye(s)")
+            if ball_data.get("byes"):
+                outcome_parts.append(f"{ball_data['byes']} bye(s)")
+            br = ball_data.get("batsmanRuns", 0)
+            tr = ball_data.get("totalRuns", 0)
+            if not outcome_parts:
+                if br == 0 and tr == 0:
+                    outcome_parts.append("Dot ball — no run")
+                else:
+                    outcome_parts.append(f"{br} run(s) off the bat")
+            outcome_parts.append(f"Total runs this ball: {tr}")
+            parts.append(f"Ball result (FACTUAL — your commentary MUST match this): {', '.join(outcome_parts)}")
 
         parts.append(f"Ball update: {raw_text}")
 

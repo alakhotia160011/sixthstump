@@ -211,10 +211,10 @@ async def run_replay(ws: WebSocket, scraper: CricketScraper, enhancer: Commentar
         # Ball commentary — text + audio sent together by worker
         live_context = tracker.get_match_context()
         current_stats = tracker.get_current_player_stats(entry.text, current_innings)
-        result = await enhancer.enhance(entry.text, live_context, over=entry.over, player_stats=current_stats)
         ball_data = {
             "runs": entry.total_runs,
             "batsmanRuns": entry.batsman_runs,
+            "totalRuns": entry.total_runs,
             "isFour": entry.is_four,
             "isSix": entry.is_six,
             "isWicket": entry.is_wicket,
@@ -223,6 +223,8 @@ async def run_replay(ws: WebSocket, scraper: CricketScraper, enhancer: Commentar
             "legbyes": entry.legbyes,
             "byes": entry.byes,
         }
+        result = await enhancer.enhance(entry.text, live_context, over=entry.over,
+                                        player_stats=current_stats, ball_data=ball_data)
         msg = {"type": "commentary", "tag": "ball",
                "text": result.text, "emotion": result.emotion,
                "over": entry.over, "ballData": ball_data}
@@ -347,10 +349,10 @@ async def run_live(ws: WebSocket, scraper: CricketScraper, enhancer: CommentaryE
                         await sync_queue.put((sc_msg, None, None))
 
                     current_stats = scraper.get_current_player_stats(entry.text)
-                    result = await enhancer.enhance(entry.text, match_context, over=entry.over, player_stats=current_stats)
                     ball_data = {
                         "runs": entry.total_runs,
                         "batsmanRuns": entry.batsman_runs,
+                        "totalRuns": entry.total_runs,
                         "isFour": entry.is_four,
                         "isSix": entry.is_six,
                         "isWicket": entry.is_wicket,
@@ -359,6 +361,8 @@ async def run_live(ws: WebSocket, scraper: CricketScraper, enhancer: CommentaryE
                         "legbyes": entry.legbyes,
                         "byes": entry.byes,
                     }
+                    result = await enhancer.enhance(entry.text, match_context, over=entry.over,
+                                                    player_stats=current_stats, ball_data=ball_data)
                     msg = {"type": "commentary", "tag": "ball",
                            "text": result.text, "emotion": result.emotion,
                            "over": entry.over, "ballData": ball_data}
