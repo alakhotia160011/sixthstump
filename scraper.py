@@ -460,6 +460,9 @@ class CricketScraper:
                 self.seen_hashes.add(entry.entry_hash)
                 new_entries.append(entry)
 
+        # API returns DESC (newest first), reverse to chronological order
+        new_entries.reverse()
+
         if new_entries:
             print(f"[scraper] found {len(new_entries)} new entries")
 
