@@ -247,11 +247,41 @@ async def run_replay(ws: WebSocket, scraper: CricketScraper, enhancer: Commentar
     await send_msg(ws, {"type": "done"})
 
 
+def _build_live_scorecard(scraper: CricketScraper) -> list[dict]:
+    """Build scorecard from the scraper's live innings data."""
+    result = []
+    for inn in scraper._innings:
+        inn_num = inn.get("inningNumber", len(result) + 1)
+        result.append({
+            "innings": inn_num,
+            "runs": inn.get("runs", 0),
+            "wickets": inn.get("wickets", 0),
+            "overs": str(inn.get("overs", "0")),
+            "runRate": inn.get("runRate", 0),
+        })
+    return result
+
+
 async def run_live(ws: WebSocket, scraper: CricketScraper, enhancer: CommentaryEnhancer,
                    tts: CommentaryTTS, stop_event: asyncio.Event):
     """Live mode: poll for new balls and commentate."""
     entries = await scraper.get_new_entries()
     match_context = await scraper.get_match_context()
+
+    # Send team info for the scoreboard
+    teams_data = scraper._match.get("teams", [])
+    team_names = {}
+    team_ids = {}
+    for i, t in enumerate(teams_data):
+        team = t.get("team", {})
+        team_names[i + 1] = team.get("abbreviation") or team.get("name") or f"Team {i+1}"
+        team_ids[i + 1] = team.get("objectId", "")
+    await send_msg(ws, {"type": "teams", "teams": team_names, "teamIds": team_ids})
+
+    # Send initial scorecard
+    live_scorecard = _build_live_scorecard(scraper)
+    if live_scorecard:
+        await send_msg(ws, {"type": "scorecard", "innings": live_scorecard})
 
     # Sync worker — sends text + audio together in order
     sync_queue, sync_task = create_sync_worker(ws, tts, stop_event)
@@ -279,6 +309,11 @@ async def run_live(ws: WebSocket, scraper: CricketScraper, enhancer: CommentaryE
             entries = await scraper.get_new_entries()
             match_context = await scraper.get_match_context()
 
+            # Update scorecard on every poll (score refreshes even between balls)
+            live_sc = _build_live_scorecard(scraper)
+            if live_sc:
+                await send_msg(ws, {"type": "scorecard", "innings": live_sc})
+
             if entries:
                 empty_polls = 0
                 for entry in entries:
@@ -303,6 +338,12 @@ async def run_live(ws: WebSocket, scraper: CricketScraper, enhancer: CommentaryE
                             pass
                     prev_over = entry.over
                     last_ball_text = entry.text
+
+                    # Send updated scorecard through queue (stays in sync)
+                    live_sc = _build_live_scorecard(scraper)
+                    if live_sc:
+                        sc_msg = {"type": "scorecard", "innings": live_sc}
+                        await sync_queue.put((sc_msg, None, None))
 
                     result = await enhancer.enhance(entry.text, match_context, over=entry.over)
                     ball_data = {
