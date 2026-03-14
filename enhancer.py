@@ -1,4 +1,5 @@
 import asyncio
+import random
 import re
 from dataclasses import dataclass
 
@@ -19,6 +20,7 @@ class CommentaryEnhancer:
         self.client = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
         self.recent_history: list[str] = []  # track recent for variety
         self.recent_fillers: list[str] = []  # track recent fillers to avoid repetition
+        self._filler_topic_queue: list[str] = []  # shuffled topic queue
 
     async def enhance(self, raw_text: str, match_context: str = "", over: str = "",
                       player_stats: str = "", ball_data: dict | None = None) -> EnhancedCommentary:
@@ -243,9 +245,11 @@ Respond in the same format:
         """Generate between-balls filler — a stat, anecdote, or tactical insight during quiet periods."""
         recent_text = "\n".join(f"- {b}" for b in recent_balls[-6:]) if recent_balls else ""
 
-        # Force a different topic each time by cycling through the list
-        topic_idx = len(self.recent_fillers) % len(self._FILLER_TOPICS)
-        forced_topic = self._FILLER_TOPICS[topic_idx]
+        # Pick from a shuffled queue — reshuffle when exhausted
+        if not self._filler_topic_queue:
+            self._filler_topic_queue = list(self._FILLER_TOPICS)
+            random.shuffle(self._filler_topic_queue)
+        forced_topic = self._filler_topic_queue.pop(0)
 
         avoid_text = ""
         if self.recent_fillers:
