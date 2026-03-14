@@ -386,18 +386,18 @@ async def run_live(ws: WebSocket, scraper: CricketScraper, enhancer: CommentaryE
                     msg = {"type": "commentary", "tag": "status",
                            "text": status_text}
                     await send_msg(ws, msg)
-                elif empty_polls == 3 and last_ball_text:
-                    # Between-balls filler
+                elif empty_polls == 4 and last_ball_text and not is_break:
+                    # First filler — use current player stats
                     current_stats = scraper.get_current_player_stats(last_ball_text)
                     filler = await enhancer.generate_filler(match_context, recent_balls, current_stats)
                     if filler.text:
                         msg = {"type": "commentary", "tag": "filler",
                                "text": filler.text, "emotion": filler.emotion}
                         await sync_queue.put((msg, filler.text, filler.emotion))
-                elif empty_polls > 3 and empty_polls % 5 == 0 and last_ball_text and not is_break:
-                    # Periodic filler during long waits (every ~40s)
-                    current_stats = scraper.get_current_player_stats(last_ball_text)
-                    filler = await enhancer.generate_filler(match_context, recent_balls, current_stats)
+                elif empty_polls == 10 and last_ball_text and not is_break:
+                    # Second filler — use full innings stats for a different angle
+                    full_stats = scraper.get_player_stats()
+                    filler = await enhancer.generate_filler(match_context, recent_balls, full_stats)
                     if filler.text:
                         msg = {"type": "commentary", "tag": "filler",
                                "text": filler.text, "emotion": filler.emotion}
