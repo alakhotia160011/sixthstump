@@ -274,14 +274,42 @@ Respond in the same format:
         emotion, text = self._parse_response(raw_response)
         return EnhancedCommentary(text=text, emotion=emotion)
 
+    # Common TTS pronunciation fixes: pattern -> spoken form
+    _TTS_FIXES = [
+        (re.compile(r'\bT20\b', re.IGNORECASE), 'T twenty'),
+        (re.compile(r'\bT20I\b', re.IGNORECASE), 'T twenty I'),
+        (re.compile(r'\bODI\b'), 'O D I'),
+        (re.compile(r'\bIPL\b'), 'I P L'),
+        (re.compile(r'\bWC\b'), 'World Cup'),
+        (re.compile(r'\bLBW\b', re.IGNORECASE), 'L B W'),
+        (re.compile(r'\bDRS\b'), 'D R S'),
+        (re.compile(r'\bRCB\b'), 'R C B'),
+        (re.compile(r'\bCSK\b'), 'C S K'),
+        (re.compile(r'\bMI\b'), 'M I'),
+        (re.compile(r'\bKKR\b'), 'K K R'),
+        (re.compile(r'\bSRH\b'), 'S R H'),
+        (re.compile(r'\bDC\b'), 'D C'),
+        (re.compile(r'\bPBKS\b'), 'P B K S'),
+        (re.compile(r'\bGT\b'), 'G T'),
+        (re.compile(r'\bLSG\b'), 'L S G'),
+        (re.compile(r'\bRR\b'), 'R R'),
+    ]
+
+    @classmethod
+    def _fix_tts_text(cls, text: str) -> str:
+        """Fix abbreviations and terms that TTS mispronounces."""
+        for pattern, replacement in cls._TTS_FIXES:
+            text = pattern.sub(replacement, text)
+        return text
+
     def _parse_response(self, raw: str) -> tuple:
         """Extract emotion tag and commentary from Claude's response."""
         emotion_match = re.match(r'\[emotion:\s*(\w+)\]\s*', raw)
         if emotion_match:
             emotion = emotion_match.group(1).lower()
             text = raw[emotion_match.end():].strip()
-            return emotion, text
-        return "neutral", raw
+            return emotion, self._fix_tts_text(text)
+        return "neutral", self._fix_tts_text(raw)
 
     def _build_prompt(self, raw_text: str, match_context: str, over: str) -> str:
         parts = []
