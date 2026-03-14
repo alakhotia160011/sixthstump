@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import re
 import json
 import hmac
@@ -494,9 +495,12 @@ class CricketScraper:
 
         all_entries = []
 
-        for inn_num in innings_numbers:
-            print(f"[scraper] fetching innings {inn_num}...")
-            inn_entries = await self._fetch_full_innings(inn_num)
+        # Fetch all innings in parallel for speed
+        print(f"[scraper] fetching {len(innings_numbers)} innings in parallel...")
+        innings_results = await asyncio.gather(
+            *[self._fetch_full_innings(inn_num) for inn_num in innings_numbers]
+        )
+        for inn_num, inn_entries in zip(innings_numbers, innings_results):
             # API returns DESC (newest first), reverse to chronological ASC
             inn_entries.reverse()
             all_entries.extend(inn_entries)

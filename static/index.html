@@ -744,6 +744,7 @@ let ws = null;
 let audioCtx = null;
 let nextPlayTime = 0;
 const SAMPLE_RATE = 44100;
+const AUDIO_GAP = 1.2; // pause between audio clips in seconds
 let allMatches = [];
 let currentFilter = 'all';
 let teamNames = {};
@@ -751,6 +752,8 @@ let teamIds = {};
 let latestScore = '';
 let currentOverBalls = [];  // track balls in current over for recap
 let lastOverNum = null;     // track when over changes
+let pendingCommentary = null; // holds text until audio arrives
+let activeAudioSources = []; // track playing/scheduled sources for stop
 
 // ── Status ──
 function setStatus(text, state) {
@@ -1028,8 +1031,29 @@ function playAudio(base64Data) {
 
   const now = audioCtx.currentTime;
   if (nextPlayTime < now) nextPlayTime = now;
-  source.start(nextPlayTime);
-  nextPlayTime += audioBuffer.duration + 0.3; // brief gap between clips
+
+  const startTime = nextPlayTime;
+  source.start(startTime);
+
+  // Show the held commentary text right when audio starts playing
+  if (pendingCommentary) {
+    const pc = pendingCommentary;
+    pendingCommentary = null;
+    const delay = (startTime - now) * 1000;
+    if (delay <= 0) {
+      addEntry(pc.tag, pc.text, pc.emotion, pc.over, pc.ballData);
+    } else {
+      setTimeout(() => addEntry(pc.tag, pc.text, pc.emotion, pc.over, pc.ballData), delay);
+    }
+  }
+
+  // Track source for stop functionality
+  activeAudioSources.push(source);
+  source.onended = () => {
+    activeAudioSources = activeAudioSources.filter(s => s !== source);
+  };
+
+  nextPlayTime += audioBuffer.duration + AUDIO_GAP;
 }
 
 function updateScoreboard(innings) {
@@ -1080,7 +1104,13 @@ function startMatch(url, mode, title, series, teams) {
     const msg = JSON.parse(event.data);
     switch (msg.type) {
       case 'commentary':
-        addEntry(msg.tag || 'ball', msg.text, msg.emotion, msg.over, msg.ballData);
+        // Hold text — it will be shown when the matching audio arrives
+        // If there was a previous pending with no audio, flush it now
+        if (pendingCommentary) {
+          const pc = pendingCommentary;
+          addEntry(pc.tag, pc.text, pc.emotion, pc.over, pc.ballData);
+        }
+        pendingCommentary = { tag: msg.tag || 'ball', text: msg.text, emotion: msg.emotion, over: msg.over, ballData: msg.ballData };
         break;
       case 'audio':
         playAudio(msg.data);
@@ -1100,6 +1130,12 @@ function startMatch(url, mode, title, series, teams) {
         addEntry('error', msg.text);
         break;
       case 'done':
+        // Flush any remaining pending commentary
+        if (pendingCommentary) {
+          const pc = pendingCommentary;
+          pendingCommentary = null;
+          addEntry(pc.tag, pc.text, pc.emotion, pc.over, pc.ballData);
+        }
         setStatus('Commentary complete', 'connected');
         document.getElementById('stopBtn').style.display = 'none';
         break;
@@ -1125,6 +1161,18 @@ function stopCommentary() {
   if (ws) {
     ws.close();
     ws = null;
+  }
+  // Stop all playing/scheduled audio immediately
+  activeAudioSources.forEach(source => {
+    try { source.stop(); } catch (e) {}
+  });
+  activeAudioSources = [];
+  nextPlayTime = 0;
+  pendingCommentary = null;
+  // Close and reset audio context so scheduled callbacks don't fire
+  if (audioCtx) {
+    audioCtx.close().catch(() => {});
+    audioCtx = null;
   }
   setStatus('Stopped', '');
   document.getElementById('stopBtn').style.display = 'none';

@@ -16,7 +16,7 @@ class CommentaryEnhancer:
     """Takes dry commentary text and makes it dramatic using Claude."""
 
     def __init__(self):
-        self.client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        self.client = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
         self.recent_history: list[str] = []  # track recent for variety
 
     async def enhance(self, raw_text: str, match_context: str = "", over: str = "") -> EnhancedCommentary:
@@ -27,7 +27,7 @@ class CommentaryEnhancer:
         # Retry with backoff on rate limits
         for attempt in range(3):
             try:
-                response = self.client.messages.create(
+                response = await self.client.messages.create(
                     model=CLAUDE_MODEL,
                     max_tokens=300,
                     system=COMMENTARY_SYSTEM_PROMPT,
@@ -73,7 +73,7 @@ Respond in the same format:
 
         for attempt in range(3):
             try:
-                response = self.client.messages.create(
+                response = await self.client.messages.create(
                     model=CLAUDE_MODEL,
                     max_tokens=400,
                     system=COMMENTARY_SYSTEM_PROMPT,
@@ -157,7 +157,7 @@ Respond in the same format:
 
         for attempt in range(3):
             try:
-                response = self.client.messages.create(
+                response = await self.client.messages.create(
                     model=CLAUDE_MODEL,
                     max_tokens=200,
                     system=COMMENTARY_SYSTEM_PROMPT,
@@ -257,7 +257,7 @@ Respond in the same format:
 
         for attempt in range(3):
             try:
-                response = self.client.messages.create(
+                response = await self.client.messages.create(
                     model=CLAUDE_MODEL,
                     max_tokens=200,
                     system=COMMENTARY_SYSTEM_PROMPT,

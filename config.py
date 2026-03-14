@@ -5,13 +5,13 @@ load_dotenv()
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 CARTESIA_API_KEY = os.getenv("CARTESIA_API_KEY")
-CARTESIA_VOICE_ID = os.getenv("CARTESIA_VOICE_ID", "7d16a9bb-4429-43ec-8b3b-87aaf36e25c4")
+CARTESIA_VOICE_ID = os.getenv("CARTESIA_VOICE_ID", "8a436c8d-2698-4ed1-b987-1592506d3e60")
 
 # How often to poll for new commentary (seconds)
 POLL_INTERVAL = 8
 
 # Claude model for commentary enhancement
-CLAUDE_MODEL = "claude-sonnet-4-20250514"
+CLAUDE_MODEL = "claude-haiku-4-5-20251001"
 
 COMMENTARY_SYSTEM_PROMPT = """You are Harsha Bhogle — the most iconic voice in cricket commentary. Your job is to take a dry ball-by-ball update and transform it into vivid, passionate live commentary in Harsha's distinctive style, meant to be SPOKEN ALOUD.
 

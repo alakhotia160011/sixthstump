@@ -38,28 +38,41 @@ async def send_msg(ws: WebSocket, msg: dict):
         pass
 
 
-def create_sync_worker(ws: WebSocket, tts: CommentaryTTS):
+def create_sync_worker(ws: WebSocket, tts: CommentaryTTS, stop_event: asyncio.Event = None):
     """Background worker that sends text + audio together in order.
 
     Each queue item is (commentary_msg, tts_text, tts_emotion).
     The worker synthesizes audio, then sends the commentary message
     and audio back-to-back so they arrive in sync on the client.
     """
-    queue: asyncio.Queue = asyncio.Queue()
+    queue: asyncio.Queue = asyncio.Queue(maxsize=2)
 
     async def worker():
         while True:
             item = await queue.get()
             if item is None:
                 break
+            if stop_event and stop_event.is_set():
+                continue  # drain queue without processing
+
+            # Scorecard-only items: (scorecard_msg, None, None)
             commentary_msg, tts_text, tts_emotion = item
+            if tts_text is None:
+                # Just a scorecard update, send immediately
+                await send_msg(ws, commentary_msg)
+                continue
+
             # Synthesize audio first
             audio_b64 = None
             try:
                 pcm = await asyncio.to_thread(tts.synthesize, tts_text, tts_emotion)
                 audio_b64 = base64.b64encode(pcm).decode("ascii")
             except Exception as e:
+                if stop_event and stop_event.is_set():
+                    continue
                 await send_msg(ws, {"type": "error", "text": f"TTS error: {e}"})
+            if stop_event and stop_event.is_set():
+                continue
             # Send text + audio together
             await send_msg(ws, commentary_msg)
             if audio_b64:
@@ -87,6 +100,9 @@ def _build_scorecard(tracker: ReplayStatTracker) -> list[dict]:
 async def run_replay(ws: WebSocket, scraper: CricketScraper, enhancer: CommentaryEnhancer,
                      tts: CommentaryTTS, stop_event: asyncio.Event):
     """Replay mode: commentate an entire match ball-by-ball."""
+    await send_msg(ws, {"type": "status", "text": "Loading match data..."})
+
+    # Fetch all entries (this also populates match metadata)
     entries = await scraper.get_all_entries()
     match_intro = await scraper.get_match_intro()
     tracker = ReplayStatTracker()
@@ -104,17 +120,10 @@ async def run_replay(ws: WebSocket, scraper: CricketScraper, enhancer: Commentar
     await send_msg(ws, {"type": "teams", "teams": team_names, "teamIds": team_ids})
 
     # Sync worker — sends text + audio together in order
-    sync_queue, sync_task = create_sync_worker(ws, tts)
+    sync_queue, sync_task = create_sync_worker(ws, tts, stop_event)
 
-    # Match intro
+    # Match intro — generate text + TTS in parallel with nothing blocking
     if match_intro:
-        await send_msg(ws, {"type": "status", "text": "Generating match intro..."})
-        intro = await asyncio.to_thread(
-            lambda: enhancer.generate_intro.__wrapped__(enhancer, match_intro)
-            if hasattr(enhancer.generate_intro, '__wrapped__')
-            else None
-        )
-        # generate_intro is async, call it directly
         intro = await enhancer.generate_intro(match_intro)
         if intro.text:
             msg = {"type": "commentary", "tag": "intro", "text": intro.text, "emotion": intro.emotion}
@@ -180,8 +189,9 @@ async def run_replay(ws: WebSocket, scraper: CricketScraper, enhancer: Commentar
         ball_count += 1
         tracker.process_entry(entry)
 
-        # Send live scoreboard update immediately (no TTS needed)
-        await send_msg(ws, {"type": "scorecard", "innings": _build_scorecard(tracker)})
+        # Send scoreboard through the queue so it stays in sync with commentary
+        scorecard_msg = {"type": "scorecard", "innings": _build_scorecard(tracker)}
+        await sync_queue.put((scorecard_msg, None, None))
 
         # Ball commentary — text + audio sent together by worker
         live_context = tracker.get_match_context()
@@ -229,7 +239,7 @@ async def run_live(ws: WebSocket, scraper: CricketScraper, enhancer: CommentaryE
     match_context = await scraper.get_match_context()
 
     # Sync worker — sends text + audio together in order
-    sync_queue, sync_task = create_sync_worker(ws, tts)
+    sync_queue, sync_task = create_sync_worker(ws, tts, stop_event)
 
     match_intro = await scraper.get_match_intro()
     if match_intro:
