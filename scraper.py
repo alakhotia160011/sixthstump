@@ -37,6 +37,8 @@ class CommentaryEntry:
 
 # Akamai EdgeAuth token generation for hs-consumer-api
 from config import HSCI_KEY as _HSCI_KEY
+if not _HSCI_KEY:
+    print("[scraper] WARNING: HSCI_KEY not set — ESPNcricinfo API calls will fail with 403")
 _TOKEN_TTL = 60
 
 

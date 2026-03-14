@@ -1075,12 +1075,7 @@ function playAudio(base64Data) {
 
   if (bytes.length % 4 !== 0) {
     console.error('Audio data length not a multiple of 4, skipping');
-    // Show pending commentary immediately since audio won't play
-    if (pendingCommentary) {
-      const pc = pendingCommentary;
-      pendingCommentary = null;
-      addEntry(pc.tag, pc.text, pc.emotion, pc.over, pc.ballData, pc.score, pc.speaker);
-    }
+    showPendingNow();
     return;
   }
 
@@ -1103,9 +1098,10 @@ function playAudio(base64Data) {
     const pc = pendingCommentary;
     pendingCommentary = null;
     const delay = (startTime - now) * 1000;
-    const sid = sessionId; // capture session to discard if user switched matches
+    const sid = sessionId;
     const showEntry = () => {
-      if (sid !== sessionId) return; // stale callback from previous match
+      if (sid !== sessionId) return;
+      if (pc.scorecard) updateScoreboard(pc.scorecard);
       addEntry(pc.tag, pc.text, pc.emotion, pc.over, pc.ballData, pc.score, pc.speaker);
     };
     if (delay <= 0) {
@@ -1124,12 +1120,7 @@ function playAudio(base64Data) {
   nextPlayTime += audioBuffer.duration + AUDIO_GAP;
   } catch (e) {
     console.error('Audio playback error:', e);
-    // Show pending commentary even if audio fails
-    if (pendingCommentary) {
-      const pc = pendingCommentary;
-      pendingCommentary = null;
-      addEntry(pc.tag, pc.text, pc.emotion, pc.over, pc.ballData, pc.score, pc.speaker);
-    }
+    showPendingNow();
   }
 }
 
@@ -1158,16 +1149,32 @@ function updateScoreboard(innings) {
   }).join('');
 }
 
+function showPendingNow() {
+  if (!pendingCommentary) return;
+  const pc = pendingCommentary;
+  pendingCommentary = null;
+  if (pc.scorecard) updateScoreboard(pc.scorecard);
+  addEntry(pc.tag, pc.text, pc.emotion, pc.over, pc.ballData, pc.score, pc.speaker);
+}
+
+let pendingTimer = null;
+
 function handleMessage(msg) {
   switch (msg.type) {
     case 'commentary':
-      if (pendingCommentary) {
-        const pc = pendingCommentary;
-        addEntry(pc.tag, pc.text, pc.emotion, pc.over, pc.ballData, pc.score, pc.speaker);
-      }
-      pendingCommentary = { tag: msg.tag || 'ball', text: msg.text, emotion: msg.emotion, over: msg.over, ballData: msg.ballData, score: latestScore, speaker: msg.speaker };
+      // Show previous pending commentary immediately
+      if (pendingTimer) { clearTimeout(pendingTimer); pendingTimer = null; }
+      if (pendingCommentary) showPendingNow();
+      // Update scoreboard if embedded in this message
+      if (msg.scorecard) updateScoreboard(msg.scorecard);
+      pendingCommentary = { tag: msg.tag || 'ball', text: msg.text, emotion: msg.emotion, over: msg.over, ballData: msg.ballData, score: latestScore, speaker: msg.speaker, scorecard: msg.scorecard };
+      // Safety: show text after 8s even if audio never arrives
+      const sid = sessionId;
+      pendingTimer = setTimeout(() => { if (sid === sessionId) showPendingNow(); }, 8000);
+      pendingTimers.push(pendingTimer);
       break;
     case 'audio':
+      if (pendingTimer) { clearTimeout(pendingTimer); pendingTimer = null; }
       playAudio(msg.data);
       break;
     case 'teams':
@@ -1187,11 +1194,8 @@ function handleMessage(msg) {
     case 'ping':
       break;
     case 'done':
-      if (pendingCommentary) {
-        const pc = pendingCommentary;
-        pendingCommentary = null;
-        addEntry(pc.tag, pc.text, pc.emotion, pc.over, pc.ballData, pc.score, pc.speaker);
-      }
+      if (pendingTimer) { clearTimeout(pendingTimer); pendingTimer = null; }
+      showPendingNow();
       setStatus('Commentary complete', 'connected');
       document.getElementById('stopBtn').style.display = 'none';
       break;

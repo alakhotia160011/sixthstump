@@ -61,7 +61,7 @@ def create_sync_worker(ws: WebSocket, tts: CommentaryTTS, stop_event: asyncio.Ev
     The worker synthesizes audio with the right voice, then sends the
     commentary message and audio back-to-back so they arrive in sync.
     """
-    queue: asyncio.Queue = asyncio.Queue(maxsize=4)
+    queue: asyncio.Queue = asyncio.Queue(maxsize=6)
 
     async def worker():
         while True:
@@ -105,15 +105,16 @@ def create_sync_worker(ws: WebSocket, tts: CommentaryTTS, stop_event: asyncio.Ev
 
 
 async def _queue_segments(sync_queue: asyncio.Queue, segments, tag: str, **extra_fields):
-    """Queue each commentary segment (from dual commentator) into the sync worker."""
+    """Queue each commentary segment into the sync worker."""
     for i, seg in enumerate(segments):
         if not seg.text:
             continue
         msg = {"type": "commentary", "tag": tag, "text": seg.text,
                "emotion": seg.emotion, "speaker": seg.speaker, **extra_fields}
-        # Only first segment of a ball gets ballData
+        # Only first segment of a ball gets ballData and scorecard
         if i > 0:
             msg.pop("ballData", None)
+            msg.pop("scorecard", None)
         await sync_queue.put((msg, seg.text, seg.emotion, seg.speaker))
 
 
@@ -226,11 +227,8 @@ async def run_replay(ws: WebSocket, scraper: CricketScraper, enhancer: Commentar
         ball_count += 1
         tracker.process_entry(entry)
 
-        # Send scoreboard through the queue so it stays in sync with commentary
-        scorecard_msg = {"type": "scorecard", "innings": _build_scorecard(tracker)}
-        await sync_queue.put((scorecard_msg, None, None, None))
-
         # Ball commentary — text + audio sent together by worker
+        # Scorecard is embedded in the first commentary message so they arrive in sync
         live_context = tracker.get_match_context()
         current_stats = tracker.get_current_player_stats(entry.text, current_innings)
         ball_data = {
@@ -245,9 +243,11 @@ async def run_replay(ws: WebSocket, scraper: CricketScraper, enhancer: Commentar
             "legbyes": entry.legbyes,
             "byes": entry.byes,
         }
+        scorecard = _build_scorecard(tracker)
         segments = await enhancer.enhance(entry.text, live_context, over=entry.over,
                                           player_stats=current_stats, ball_data=ball_data)
-        await _queue_segments(sync_queue, segments, "ball", over=entry.over, ballData=ball_data)
+        await _queue_segments(sync_queue, segments, "ball", over=entry.over,
+                              ballData=ball_data, scorecard=scorecard)
 
         recent_balls.append(f"[{entry.over}] {entry.text[:80]}")
         if len(recent_balls) > 12:
@@ -353,12 +353,6 @@ async def run_live(ws: WebSocket, scraper: CricketScraper, enhancer: CommentaryE
                     prev_over = entry.over
                     last_ball_text = entry.text
 
-                    # Send updated scorecard through queue (stays in sync)
-                    live_sc = _build_live_scorecard(scraper)
-                    if live_sc:
-                        sc_msg = {"type": "scorecard", "innings": live_sc}
-                        await sync_queue.put((sc_msg, None, None, None))
-
                     current_stats = scraper.get_current_player_stats(entry.text)
                     ball_data = {
                         "runs": entry.total_runs,
@@ -372,9 +366,11 @@ async def run_live(ws: WebSocket, scraper: CricketScraper, enhancer: CommentaryE
                         "legbyes": entry.legbyes,
                         "byes": entry.byes,
                     }
+                    live_sc = _build_live_scorecard(scraper)
                     segments = await enhancer.enhance(entry.text, match_context, over=entry.over,
                                                       player_stats=current_stats, ball_data=ball_data)
-                    await _queue_segments(sync_queue, segments, "ball", over=entry.over, ballData=ball_data)
+                    await _queue_segments(sync_queue, segments, "ball", over=entry.over,
+                                          ballData=ball_data, scorecard=live_sc)
 
                     recent_balls.append(f"[{entry.over}] {entry.text[:80]}")
                     if len(recent_balls) > 12:
