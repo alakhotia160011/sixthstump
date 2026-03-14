@@ -100,7 +100,8 @@ Match details:
 {f"Current state: {match_context}" if match_context else ""}
 
 Rules:
-- 3-5 sentences MAX. Punchy, vivid, sets the tone.
+- Start by introducing yourself: "This is sixthstump, your AI cricket companion, and I'm here to bring you every ball of this one."
+- 3-5 sentences MAX after the intro line. Punchy, vivid, sets the tone.
 - Paint the picture: the stadium, the crowd, the atmosphere.
 - Mention both teams and the stakes naturally.
 - End with something that transitions into the action — "Let's get started" energy.

@@ -744,7 +744,7 @@ let ws = null;
 let audioCtx = null;
 let nextPlayTime = 0;
 const SAMPLE_RATE = 44100;
-const AUDIO_GAP = 1.2; // pause between audio clips in seconds
+const AUDIO_GAP = 1.5; // pause between audio clips in seconds
 let allMatches = [];
 let currentFilter = 'all';
 let teamNames = {};
@@ -754,6 +754,8 @@ let currentOverBalls = [];  // track balls in current over for recap
 let lastOverNum = null;     // track when over changes
 let pendingCommentary = null; // holds text until audio arrives
 let activeAudioSources = []; // track playing/scheduled sources for stop
+let pendingTimers = []; // track setTimeout IDs so we can cancel on stop/back
+let sessionId = 0; // incremented on each new match to discard stale callbacks
 
 // ── Status ──
 function setStatus(text, state) {
@@ -963,7 +965,7 @@ function renderOverRecap(overNum, balls) {
   feed.appendChild(div);
 }
 
-function addEntry(tag, text, emotion, over, ballData) {
+function addEntry(tag, text, emotion, over, ballData, score) {
   const empty = document.getElementById('emptyState');
   if (empty) empty.remove();
 
@@ -987,7 +989,9 @@ function addEntry(tag, text, emotion, over, ballData) {
   if (tag === 'ball' && ballData) {
     const indicatorClass = getBallClass(ballData);
     const indicatorLabel = getBallLabel(ballData);
-    const scoreBadge = latestScore ? `<span class="entry-score-badge">${latestScore}</span>` : '';
+    // Use captured score (from when commentary was received), not the current global
+    const displayScore = score !== undefined ? score : latestScore;
+    const scoreBadge = displayScore ? `<span class="entry-score-badge">${displayScore}</span>` : '';
 
     div.innerHTML = `
       <div class="run-indicator ${indicatorClass}">${indicatorLabel}</div>
@@ -1040,10 +1044,15 @@ function playAudio(base64Data) {
     const pc = pendingCommentary;
     pendingCommentary = null;
     const delay = (startTime - now) * 1000;
+    const sid = sessionId; // capture session to discard if user switched matches
+    const showEntry = () => {
+      if (sid !== sessionId) return; // stale callback from previous match
+      addEntry(pc.tag, pc.text, pc.emotion, pc.over, pc.ballData, pc.score);
+    };
     if (delay <= 0) {
-      addEntry(pc.tag, pc.text, pc.emotion, pc.over, pc.ballData);
+      showEntry();
     } else {
-      setTimeout(() => addEntry(pc.tag, pc.text, pc.emotion, pc.over, pc.ballData), delay);
+      pendingTimers.push(setTimeout(showEntry, delay));
     }
   }
 
@@ -1108,9 +1117,10 @@ function startMatch(url, mode, title, series, teams) {
         // If there was a previous pending with no audio, flush it now
         if (pendingCommentary) {
           const pc = pendingCommentary;
-          addEntry(pc.tag, pc.text, pc.emotion, pc.over, pc.ballData);
+          addEntry(pc.tag, pc.text, pc.emotion, pc.over, pc.ballData, pc.score);
         }
-        pendingCommentary = { tag: msg.tag || 'ball', text: msg.text, emotion: msg.emotion, over: msg.over, ballData: msg.ballData };
+        // Capture latestScore NOW so it stays correct when displayed later
+        pendingCommentary = { tag: msg.tag || 'ball', text: msg.text, emotion: msg.emotion, over: msg.over, ballData: msg.ballData, score: latestScore };
         break;
       case 'audio':
         playAudio(msg.data);
@@ -1134,7 +1144,7 @@ function startMatch(url, mode, title, series, teams) {
         if (pendingCommentary) {
           const pc = pendingCommentary;
           pendingCommentary = null;
-          addEntry(pc.tag, pc.text, pc.emotion, pc.over, pc.ballData);
+          addEntry(pc.tag, pc.text, pc.emotion, pc.over, pc.ballData, pc.score);
         }
         setStatus('Commentary complete', 'connected');
         document.getElementById('stopBtn').style.display = 'none';
@@ -1162,6 +1172,10 @@ function stopCommentary() {
     ws.close();
     ws = null;
   }
+  // Invalidate any pending setTimeout callbacks from old match
+  sessionId++;
+  pendingTimers.forEach(id => clearTimeout(id));
+  pendingTimers = [];
   // Stop all playing/scheduled audio immediately
   activeAudioSources.forEach(source => {
     try { source.stop(); } catch (e) {}
