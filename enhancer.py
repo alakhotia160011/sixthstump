@@ -100,7 +100,7 @@ Match details:
 {f"Current state: {match_context}" if match_context else ""}
 
 Rules:
-- Start naturally: "This is sixthstump, and I'm Harsha Bhogle... here to bring you every ball of this one."
+- Mention "sixthstump" somewhere in the intro — weave it in naturally. Vary how you do it each time. Examples: "This is sixthstump, and I'm Harsha Bhogle..." or "Harsha Bhogle here, on sixthstump, and what a day we have ahead..." or end with "...stay with us, right here on sixthstump." Don't always put it first — sometimes mid-sentence, sometimes at the end.
 - 3-5 sentences MAX after the intro line. Punchy, vivid, sets the tone.
 - Paint the picture: the stadium, the crowd, the atmosphere.
 - Mention both teams and the stakes naturally.
