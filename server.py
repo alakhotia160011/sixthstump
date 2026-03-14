@@ -370,7 +370,17 @@ async def commentary_ws(websocket: WebSocket):
             except (WebSocketDisconnect, Exception):
                 stop_event.set()
 
+        # Keepalive ping to prevent Railway proxy from killing idle connections
+        async def keepalive():
+            try:
+                while not stop_event.is_set():
+                    await asyncio.sleep(15)
+                    await send_msg(websocket, {"type": "ping"})
+            except Exception:
+                pass
+
         stop_task = asyncio.create_task(listen_for_stop())
+        ping_task = asyncio.create_task(keepalive())
 
         try:
             await scraper.start()
@@ -382,6 +392,7 @@ async def commentary_ws(websocket: WebSocket):
         finally:
             stop_event.set()
             stop_task.cancel()
+            ping_task.cancel()
             await scraper.stop()
 
     except WebSocketDisconnect:
