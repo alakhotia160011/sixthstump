@@ -369,7 +369,29 @@ async def run_live(ws: WebSocket, scraper: CricketScraper, enhancer: CommentaryE
                         recent_balls.pop(0)
             else:
                 empty_polls += 1
-                if empty_polls == 3 and last_ball_text:
+
+                # Check match status for breaks/delays
+                match_status = (scraper._match.get("statusText", "") or "").lower()
+                break_keywords = ["lunch", "tea", "stumps", "drinks", "break",
+                                  "rain", "bad light", "delay", "timeout", "review"]
+                is_break = any(kw in match_status for kw in break_keywords)
+
+                if empty_polls == 2 and is_break:
+                    # Inform listener about the break
+                    status_text = scraper._match.get("statusText", "")
+                    msg = {"type": "commentary", "tag": "status",
+                           "text": status_text}
+                    await send_msg(ws, msg)
+                elif empty_polls == 3 and last_ball_text:
+                    # Between-balls filler
+                    current_stats = scraper.get_current_player_stats(last_ball_text)
+                    filler = await enhancer.generate_filler(match_context, recent_balls, current_stats)
+                    if filler.text:
+                        msg = {"type": "commentary", "tag": "filler",
+                               "text": filler.text, "emotion": filler.emotion}
+                        await sync_queue.put((msg, filler.text, filler.emotion))
+                elif empty_polls > 3 and empty_polls % 5 == 0 and last_ball_text and not is_break:
+                    # Periodic filler during long waits (every ~40s)
                     current_stats = scraper.get_current_player_stats(last_ball_text)
                     filler = await enhancer.generate_filler(match_context, recent_balls, current_stats)
                     if filler.text:
