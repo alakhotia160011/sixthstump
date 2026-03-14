@@ -206,6 +206,7 @@
     border-radius: 4px;
   }
   .badge-live { background: #DCFCE7; color: var(--dark-green); }
+  .badge-break { background: #FEF3C7; color: #92400E; }
   .badge-post { background: rgba(226, 176, 126, 0.15); color: #B8862D; }
   .badge-pre { background: rgba(107, 133, 119, 0.1); color: var(--text-light); }
   .match-format {
@@ -817,8 +818,11 @@ function renderMatches() {
   window._filteredMatches = filtered;
 
   container.innerHTML = filtered.map((m, idx) => {
-    const stateClass = m.state === 'LIVE' ? 'badge-live' : m.state === 'POST' ? 'badge-post' : 'badge-pre';
-    const stateLabel = m.state === 'LIVE' ? 'Live' : m.state === 'POST' ? 'Completed' : 'Upcoming';
+    const breakWords = ['lunch', 'tea', 'stumps', 'break', 'innings break', 'rain', 'bad light', 'delayed'];
+    const statusLower = (m.statusText || '').toLowerCase();
+    const isBreak = m.state === 'LIVE' && breakWords.some(w => statusLower.includes(w));
+    const stateClass = isBreak ? 'badge-break' : m.state === 'LIVE' ? 'badge-live' : m.state === 'POST' ? 'badge-post' : 'badge-pre';
+    const stateLabel = isBreak ? (statusLower.includes('lunch') ? 'Lunch' : statusLower.includes('tea') ? 'Tea' : statusLower.includes('stumps') ? 'Stumps' : 'Break') : m.state === 'LIVE' ? 'Live' : m.state === 'POST' ? 'Completed' : 'Upcoming';
     const teamNames = m.teams.map(t => t.name).join(' vs ');
 
     const scores = m.teams
@@ -1025,7 +1029,7 @@ function playAudio(base64Data) {
   const now = audioCtx.currentTime;
   if (nextPlayTime < now) nextPlayTime = now;
   source.start(nextPlayTime);
-  nextPlayTime += audioBuffer.duration + 1.5; // 1.5s silence gap between clips
+  nextPlayTime += audioBuffer.duration + 0.3; // brief gap between clips
 }
 
 function updateScoreboard(innings) {

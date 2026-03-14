@@ -38,14 +38,35 @@ async def send_msg(ws: WebSocket, msg: dict):
         pass
 
 
-async def synthesize_and_send(ws: WebSocket, tts: CommentaryTTS, text: str, emotion: str):
-    """Run TTS in a thread and send audio to client."""
-    try:
-        pcm = await asyncio.to_thread(tts.synthesize, text, emotion)
-        audio_b64 = base64.b64encode(pcm).decode("ascii")
-        await send_msg(ws, {"type": "audio", "data": audio_b64})
-    except Exception as e:
-        await send_msg(ws, {"type": "error", "text": f"TTS error: {e}"})
+def create_sync_worker(ws: WebSocket, tts: CommentaryTTS):
+    """Background worker that sends text + audio together in order.
+
+    Each queue item is (commentary_msg, tts_text, tts_emotion).
+    The worker synthesizes audio, then sends the commentary message
+    and audio back-to-back so they arrive in sync on the client.
+    """
+    queue: asyncio.Queue = asyncio.Queue()
+
+    async def worker():
+        while True:
+            item = await queue.get()
+            if item is None:
+                break
+            commentary_msg, tts_text, tts_emotion = item
+            # Synthesize audio first
+            audio_b64 = None
+            try:
+                pcm = await asyncio.to_thread(tts.synthesize, tts_text, tts_emotion)
+                audio_b64 = base64.b64encode(pcm).decode("ascii")
+            except Exception as e:
+                await send_msg(ws, {"type": "error", "text": f"TTS error: {e}"})
+            # Send text + audio together
+            await send_msg(ws, commentary_msg)
+            if audio_b64:
+                await send_msg(ws, {"type": "audio", "data": audio_b64})
+
+    task = asyncio.create_task(worker())
+    return queue, task
 
 
 def _build_scorecard(tracker: ReplayStatTracker) -> list[dict]:
@@ -82,6 +103,9 @@ async def run_replay(ws: WebSocket, scraper: CricketScraper, enhancer: Commentar
         team_ids[i + 1] = team.get("objectId", "")
     await send_msg(ws, {"type": "teams", "teams": team_names, "teamIds": team_ids})
 
+    # Sync worker — sends text + audio together in order
+    sync_queue, sync_task = create_sync_worker(ws, tts)
+
     # Match intro
     if match_intro:
         await send_msg(ws, {"type": "status", "text": "Generating match intro..."})
@@ -93,8 +117,8 @@ async def run_replay(ws: WebSocket, scraper: CricketScraper, enhancer: Commentar
         # generate_intro is async, call it directly
         intro = await enhancer.generate_intro(match_intro)
         if intro.text:
-            await send_msg(ws, {"type": "commentary", "tag": "intro", "text": intro.text, "emotion": intro.emotion})
-            await synthesize_and_send(ws, tts, intro.text, intro.emotion)
+            msg = {"type": "commentary", "tag": "intro", "text": intro.text, "emotion": intro.emotion}
+            await sync_queue.put((msg, intro.text, intro.emotion))
 
     prev_over = None
     recent_balls: list[str] = []
@@ -119,9 +143,9 @@ async def run_replay(ws: WebSocket, scraper: CricketScraper, enhancer: Commentar
                     tracker_context = tracker.get_match_context()
                     break_result = await enhancer.generate_innings_break(tracker_context)
                     if break_result.text:
-                        await send_msg(ws, {"type": "commentary", "tag": "break",
-                                            "text": break_result.text, "emotion": break_result.emotion})
-                        await synthesize_and_send(ws, tts, break_result.text, break_result.emotion)
+                        msg = {"type": "commentary", "tag": "break",
+                               "text": break_result.text, "emotion": break_result.emotion}
+                        await sync_queue.put((msg, break_result.text, break_result.emotion))
                     recent_balls.clear()
                     summaries_done.clear()
                     current_innings += 1
@@ -136,19 +160,19 @@ async def run_replay(ws: WebSocket, scraper: CricketScraper, enhancer: Commentar
                         tracker_context = tracker.get_match_context()
                         summary = await enhancer.generate_over_summary(display_over, tracker_context, recent_balls, player_stats)
                         if summary.text:
-                            await send_msg(ws, {"type": "commentary", "tag": "summary",
-                                                "text": summary.text, "emotion": summary.emotion,
-                                                "over": f"Over {display_over}"})
-                            await synthesize_and_send(ws, tts, summary.text, summary.emotion)
+                            msg = {"type": "commentary", "tag": "summary",
+                                   "text": summary.text, "emotion": summary.emotion,
+                                   "over": f"Over {display_over}"}
+                            await sync_queue.put((msg, summary.text, summary.emotion))
                     else:
                         current_stats = tracker.get_current_player_stats(entry.text, current_innings)
                         tracker_context = tracker.get_match_context()
                         score_update = await enhancer.generate_score_update(display_over, tracker_context, current_stats)
                         if score_update.text:
-                            await send_msg(ws, {"type": "commentary", "tag": "score",
-                                                "text": score_update.text, "emotion": score_update.emotion,
-                                                "over": f"Over {display_over}"})
-                            await synthesize_and_send(ws, tts, score_update.text, score_update.emotion)
+                            msg = {"type": "commentary", "tag": "score",
+                                   "text": score_update.text, "emotion": score_update.emotion,
+                                   "over": f"Over {display_over}"}
+                            await sync_queue.put((msg, score_update.text, score_update.emotion))
             except ValueError:
                 pass
 
@@ -156,10 +180,10 @@ async def run_replay(ws: WebSocket, scraper: CricketScraper, enhancer: Commentar
         ball_count += 1
         tracker.process_entry(entry)
 
-        # Send live scoreboard update
+        # Send live scoreboard update immediately (no TTS needed)
         await send_msg(ws, {"type": "scorecard", "innings": _build_scorecard(tracker)})
 
-        # Ball commentary
+        # Ball commentary — text + audio sent together by worker
         live_context = tracker.get_match_context()
         result = await enhancer.enhance(entry.text, live_context, over=entry.over)
         ball_data = {
@@ -173,13 +197,10 @@ async def run_replay(ws: WebSocket, scraper: CricketScraper, enhancer: Commentar
             "legbyes": entry.legbyes,
             "byes": entry.byes,
         }
-        await send_msg(ws, {"type": "commentary", "tag": "ball",
-                            "text": result.text, "emotion": result.emotion,
-                            "over": entry.over, "ballData": ball_data})
-        await synthesize_and_send(ws, tts, result.text, result.emotion)
-
-        # Brief pause between balls for natural pacing
-        await asyncio.sleep(1.5)
+        msg = {"type": "commentary", "tag": "ball",
+               "text": result.text, "emotion": result.emotion,
+               "over": entry.over, "ballData": ball_data}
+        await sync_queue.put((msg, result.text, result.emotion))
 
         recent_balls.append(f"[{entry.over}] {entry.text[:80]}")
         if len(recent_balls) > 12:
@@ -191,10 +212,13 @@ async def run_replay(ws: WebSocket, scraper: CricketScraper, enhancer: Commentar
             tracker_context = tracker.get_match_context()
             filler = await enhancer.generate_filler(tracker_context, recent_balls, current_stats)
             if filler.text:
-                await send_msg(ws, {"type": "commentary", "tag": "filler",
-                                    "text": filler.text, "emotion": filler.emotion})
-                await synthesize_and_send(ws, tts, filler.text, filler.emotion)
+                msg = {"type": "commentary", "tag": "filler",
+                       "text": filler.text, "emotion": filler.emotion}
+                await sync_queue.put((msg, filler.text, filler.emotion))
 
+    # Wait for remaining items to finish, then shut down worker
+    await sync_queue.put(None)
+    await sync_task
     await send_msg(ws, {"type": "done"})
 
 
@@ -204,12 +228,15 @@ async def run_live(ws: WebSocket, scraper: CricketScraper, enhancer: CommentaryE
     entries = await scraper.get_new_entries()
     match_context = await scraper.get_match_context()
 
+    # Sync worker — sends text + audio together in order
+    sync_queue, sync_task = create_sync_worker(ws, tts)
+
     match_intro = await scraper.get_match_intro()
     if match_intro:
         intro = await enhancer.generate_intro(match_intro, match_context)
         if intro.text:
-            await send_msg(ws, {"type": "commentary", "tag": "intro", "text": intro.text, "emotion": intro.emotion})
-            await synthesize_and_send(ws, tts, intro.text, intro.emotion)
+            msg = {"type": "commentary", "tag": "intro", "text": intro.text, "emotion": intro.emotion}
+            await sync_queue.put((msg, intro.text, intro.emotion))
 
     if entries:
         await send_msg(ws, {"type": "status", "text": f"Skipped {len(entries)} existing — waiting for live balls"})
@@ -244,9 +271,9 @@ async def run_live(ws: WebSocket, scraper: CricketScraper, enhancer: CommentaryE
                                 player_stats = scraper.get_player_stats()
                                 summary = await enhancer.generate_over_summary(prev_int, match_context, recent_balls, player_stats)
                                 if summary.text:
-                                    await send_msg(ws, {"type": "commentary", "tag": "summary",
-                                                        "text": summary.text, "emotion": summary.emotion})
-                                    await synthesize_and_send(ws, tts, summary.text, summary.emotion)
+                                    msg = {"type": "commentary", "tag": "summary",
+                                           "text": summary.text, "emotion": summary.emotion}
+                                    await sync_queue.put((msg, summary.text, summary.emotion))
                         except ValueError:
                             pass
                     prev_over = entry.over
@@ -264,10 +291,10 @@ async def run_live(ws: WebSocket, scraper: CricketScraper, enhancer: CommentaryE
                         "legbyes": entry.legbyes,
                         "byes": entry.byes,
                     }
-                    await send_msg(ws, {"type": "commentary", "tag": "ball",
-                                        "text": result.text, "emotion": result.emotion,
-                                        "over": entry.over, "ballData": ball_data})
-                    await synthesize_and_send(ws, tts, result.text, result.emotion)
+                    msg = {"type": "commentary", "tag": "ball",
+                           "text": result.text, "emotion": result.emotion,
+                           "over": entry.over, "ballData": ball_data}
+                    await sync_queue.put((msg, result.text, result.emotion))
 
                     recent_balls.append(f"[{entry.over}] {entry.text[:80]}")
                     if len(recent_balls) > 12:
@@ -278,9 +305,9 @@ async def run_live(ws: WebSocket, scraper: CricketScraper, enhancer: CommentaryE
                     current_stats = scraper.get_current_player_stats(last_ball_text)
                     filler = await enhancer.generate_filler(match_context, recent_balls, current_stats)
                     if filler.text:
-                        await send_msg(ws, {"type": "commentary", "tag": "filler",
-                                            "text": filler.text, "emotion": filler.emotion})
-                        await synthesize_and_send(ws, tts, filler.text, filler.emotion)
+                        msg = {"type": "commentary", "tag": "filler",
+                               "text": filler.text, "emotion": filler.emotion}
+                        await sync_queue.put((msg, filler.text, filler.emotion))
 
         except Exception as e:
             await send_msg(ws, {"type": "error", "text": f"Error: {e}"})
@@ -290,6 +317,9 @@ async def run_live(ws: WebSocket, scraper: CricketScraper, enhancer: CommentaryE
         except asyncio.TimeoutError:
             pass
 
+    # Shut down sync worker
+    await sync_queue.put(None)
+    await sync_task
     await send_msg(ws, {"type": "done"})
 
 
