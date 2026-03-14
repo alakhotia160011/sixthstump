@@ -113,7 +113,7 @@ Respond in the same format:
 
         for attempt in range(3):
             try:
-                response = self.client.messages.create(
+                response = await self.client.messages.create(
                     model=CLAUDE_MODEL,
                     max_tokens=400,
                     system=COMMENTARY_SYSTEM_PROMPT,
@@ -209,7 +209,7 @@ Respond in the same format:
 
         for attempt in range(3):
             try:
-                response = self.client.messages.create(
+                response = await self.client.messages.create(
                     model=CLAUDE_MODEL,
                     max_tokens=300,
                     system=COMMENTARY_SYSTEM_PROMPT,
