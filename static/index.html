@@ -902,11 +902,11 @@
 
 <nav>
   <div class="nav-brand">
-    <h1 onclick="showBrowser()">sixthstump</h1>
+    <h1 onclick="showBrowser(); return false;" style="cursor:pointer">sixthstump</h1>
     <span>AI Cricket Commentary</span>
   </div>
   <div class="nav-right">
-    <a class="nav-link" onclick="showAbout()">About</a>
+    <a class="nav-link" href="/about" onclick="showAbout(); return false;">About</a>
   </div>
 </nav>
 
@@ -1070,6 +1070,7 @@ let lastMatchMode = '';
 let lastMatchTitle = '';
 let lastMatchSeries = '';
 let lastMatchTeams = null;
+let lastMatchId = '';
 let currentOverBalls = [];  // track balls in current over for recap
 let lastOverNum = null;     // track when over changes
 let ballsPlayed = 0;        // track replay position for resume
@@ -1090,6 +1091,17 @@ async function loadMatches() {
     const data = await resp.json();
     allMatches = data.matches || [];
     renderMatches();
+    // Auto-start match if navigated via /match/:id URL
+    if (window._pendingMatchId) {
+      const mid = window._pendingMatchId;
+      delete window._pendingMatchId;
+      const m = allMatches.find(m => String(m.matchId) === mid);
+      if (m) {
+        const title = m.teams.map(t => t.name).join(' vs ');
+        const mode = m.state === 'LIVE' ? 'live' : 'replay';
+        startMatch(m.url, mode, title, m.series, m.teams, m.matchId);
+      }
+    }
   } catch (e) {
     document.getElementById('matchListInner').innerHTML =
       `<div class="empty-matches"><p>Failed to load matches. <a href="#" onclick="loadMatches(); return false;">Retry</a></p></div>`;
@@ -1178,28 +1190,66 @@ function renderMatches() {
   }).join('');
 }
 
-// View switching
+// View switching & routing
 function hideAllViews() {
   document.getElementById('browserView').classList.remove('active');
   document.getElementById('commentaryView').classList.remove('active');
   document.getElementById('aboutView').classList.remove('active');
 }
 
-function showBrowser() {
+function showBrowser(pushState = true) {
   stopCommentary();
   hideAllViews();
   document.getElementById('browserView').classList.add('active');
   setStatus('Ready', '');
+  if (pushState) history.pushState({view: 'browser'}, '', '/');
 }
 
-function showAbout() {
+function showAbout(pushState = true) {
   hideAllViews();
   document.getElementById('aboutView').classList.add('active');
+  if (pushState) history.pushState({view: 'about'}, '', '/about');
 }
 
-function showCommentary(title, series, teams) {
+// Handle browser back/forward
+window.addEventListener('popstate', function(e) {
+  const state = e.state;
+  if (state && state.view === 'about') {
+    showAbout(false);
+  } else if (state && state.view === 'commentary') {
+    // Can't restore commentary from popstate, go to browser
+    showBrowser(false);
+  } else {
+    showBrowser(false);
+  }
+});
+
+// Route on initial page load
+(function initRouter() {
+  const path = window.location.pathname.replace(/\/+$/, '') || '/';
+  if (path === '/about') {
+    showAbout(false);
+  } else if (path.startsWith('/match/')) {
+    // Extract matchId and try to auto-start after matches load
+    const parts = path.split('/');
+    window._pendingMatchId = parts[2] || '';
+    history.replaceState({view: 'browser'}, '', '/');
+  } else {
+    history.replaceState({view: 'browser'}, '', '/');
+  }
+})();
+
+function matchSlug(matchId, teams) {
+  if (!teams || !teams.length) return `/match/${matchId}`;
+  const slug = teams.map(t => (t.abbreviation || t.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '')).join('-vs-');
+  return `/match/${matchId}/${slug}`;
+}
+
+function showCommentary(title, series, teams, matchId) {
   hideAllViews();
   document.getElementById('commentaryView').classList.add('active');
+  const path = matchId ? matchSlug(matchId, teams) : '/live';
+  history.pushState({view: 'commentary', matchId}, '', path);
   const titleEl = document.getElementById('commentaryTitle');
   if (teams && teams.length) {
     titleEl.innerHTML = teams.map(t => `${teamLogoImg(t.id, 22)} ${esc(t.name)}`).join(' <span style="color:var(--text-light);font-weight:400;font-size:14px">vs</span> ');
@@ -1247,7 +1297,7 @@ function startMatchByIndex(idx, mode) {
   const m = window._filteredMatches[idx];
   if (!m) return;
   const title = m.teams.map(t => t.name).join(' vs ');
-  startMatch(m.url, mode, title, m.series, m.teams);
+  startMatch(m.url, mode, title, m.series, m.teams, m.matchId);
 }
 
 function stopAndGoBack() {
@@ -1584,14 +1634,15 @@ function resumeCommentary() {
   };
 }
 
-function startMatch(url, mode, title, series, teams) {
+function startMatch(url, mode, title, series, teams, matchId) {
   lastMatchUrl = url;
   lastMatchMode = mode;
   lastMatchTitle = title;
   lastMatchSeries = series;
   lastMatchTeams = teams;
+  lastMatchId = matchId || '';
 
-  showCommentary(title, series, teams);
+  showCommentary(title, series, teams, matchId);
 
   if (!audioCtx) {
     audioCtx = new AudioContext({ sampleRate: SAMPLE_RATE });
