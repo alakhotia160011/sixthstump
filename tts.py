@@ -56,21 +56,28 @@ class CommentaryTTS:
             return output
         return b"".join(output)
 
-    # Emotion profiles: speed + volume tuned per emotion for dramatic commentary
-    # Using "highest" intensity for high-energy moments, "high" for moderate
+    # Emotion profiles: all set to "highest" intensity for pronounced expression
     EMOTION_PROFILES = {
-        "excited":       {"emotion": "excited:highest",       "speed": 1.0,  "volume": 1.8},
-        "enthusiastic":  {"emotion": "enthusiastic:highest",  "speed": 0.95, "volume": 1.6},
-        "triumphant":    {"emotion": "triumphant:highest",    "speed": 0.9,  "volume": 1.9},
-        "amazed":        {"emotion": "amazed:highest",        "speed": 0.95, "volume": 1.7},
-        "surprised":     {"emotion": "surprised:highest",     "speed": 0.95, "volume": 1.7},
-        "calm":          {"emotion": "calm:high",             "speed": 0.75, "volume": 0.9},
-        "content":       {"emotion": "content:high",          "speed": 0.8,  "volume": 1.0},
-        "anticipation":  {"emotion": "anticipation:highest",  "speed": 0.9,  "volume": 1.4},
-        "disappointed":  {"emotion": "disappointed:highest",  "speed": 0.7,  "volume": 0.8},
-        "proud":         {"emotion": "proud:highest",         "speed": 0.85, "volume": 1.5},
-        "confident":     {"emotion": "confident:high",        "speed": 0.85, "volume": 1.3},
-        "contemplative": {"emotion": "contemplative:high",    "speed": 0.7,  "volume": 0.85},
-        "determined":    {"emotion": "determined:highest",    "speed": 0.9,  "volume": 1.5},
+        "excited":       {"emotion": "excited:highest",       "speed": 1.05, "volume": 1.9},
+        "enthusiastic":  {"emotion": "enthusiastic:highest",  "speed": 1.0,  "volume": 1.8},
+        "triumphant":    {"emotion": "triumphant:highest",    "speed": 0.95, "volume": 2.0},
+        "amazed":        {"emotion": "amazed:highest",        "speed": 1.0,  "volume": 1.8},
+        "surprised":     {"emotion": "surprised:highest",     "speed": 1.0,  "volume": 1.8},
+        "calm":          {"emotion": "calm:highest",          "speed": 0.8,  "volume": 1.0},
+        "content":       {"emotion": "content:highest",       "speed": 0.85, "volume": 1.2},
+        "anticipation":  {"emotion": "anticipation:highest",  "speed": 0.95, "volume": 1.6},
+        "disappointed":  {"emotion": "disappointed:highest",  "speed": 0.75, "volume": 1.0},
+        "proud":         {"emotion": "proud:highest",         "speed": 0.9,  "volume": 1.7},
+        "confident":     {"emotion": "confident:highest",     "speed": 0.9,  "volume": 1.5},
+        "contemplative": {"emotion": "contemplative:highest", "speed": 0.75, "volume": 1.0},
+        "determined":    {"emotion": "determined:highest",    "speed": 0.95, "volume": 1.7},
+        "happy":         {"emotion": "happy:highest",         "speed": 1.0,  "volume": 1.7},
+        "amused":        {"emotion": "curious:highest",       "speed": 0.95, "volume": 1.5},
+        "sarcastic":     {"emotion": "sarcastic:highest",     "speed": 0.9,  "volume": 1.4},
+        "nostalgic":     {"emotion": "nostalgic:highest",     "speed": 0.8,  "volume": 1.2},
+        "wistful":       {"emotion": "wistful:highest",       "speed": 0.8,  "volume": 1.1},
+        "playful":       {"emotion": "flirtatious:highest",   "speed": 1.0,  "volume": 1.6},
+        "frustrated":    {"emotion": "frustrated:highest",    "speed": 0.95, "volume": 1.6},
+        "sympathetic":   {"emotion": "sympathetic:highest",   "speed": 0.85, "volume": 1.2},
     }
 

@@ -254,7 +254,7 @@ Recent deliveries:
 Rules:
 - 2-4 sentences total. Two or three of you should contribute - one raises a point, the others respond.
 - STICK TO THE ASSIGNED TOPIC.
-- Reference specific numbers from the stats provided.
+- ONLY use numbers and stats that appear EXACTLY in the match state and player stats above. NEVER invent, estimate, or calculate your own numbers. If you're unsure of a stat, talk about it qualitatively instead.
 - Make it a real conversation - agree, disagree, build on each other's points.
 - Write for SPEECH.
 

@@ -883,10 +883,6 @@
   </div>
   <div class="nav-right">
     <a class="nav-link" onclick="showAbout()">About</a>
-    <div class="nav-status">
-      <div class="status-dot" id="statusDot"></div>
-      <span id="statusText">Ready</span>
-    </div>
   </div>
 </nav>
 
@@ -1042,10 +1038,7 @@ let sessionId = 0; // incremented on each new match to discard stale callbacks
 
 // Status
 function setStatus(text, state) {
-  document.getElementById('statusText').textContent = text;
-  const dot = document.getElementById('statusDot');
-  dot.className = 'status-dot';
-  if (state) dot.classList.add(state);
+  // Status indicator removed from nav, but keep function for logging
 }
 
 // Match Browser
