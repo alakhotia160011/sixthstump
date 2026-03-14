@@ -737,6 +737,107 @@
   .url-bar input:focus { border-color: var(--mid-green); }
   .url-bar input::placeholder { color: var(--text-light); }
 
+  /* Nav right */
+  .nav-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .nav-link {
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(226, 209, 163, 0.7);
+    cursor: pointer;
+    transition: color 0.15s;
+  }
+  .nav-link:hover { color: var(--cream); }
+
+  /* About View */
+  .about-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: clamp(32px, 5vw, 60px) clamp(16px, 4vw, 48px);
+  }
+  .about-scroll::-webkit-scrollbar { width: 5px; }
+  .about-scroll::-webkit-scrollbar-track { background: transparent; }
+  .about-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  .about-inner {
+    max-width: 680px;
+    margin: 0 auto;
+  }
+  .about-hero {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    margin-bottom: 36px;
+  }
+  .about-photo {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--cream);
+    flex-shrink: 0;
+  }
+  .about-hero-text h2 {
+    font-size: clamp(24px, 3.5vw, 32px);
+    font-weight: 700;
+    color: var(--text-dark);
+    letter-spacing: -0.5px;
+    margin-bottom: 4px;
+  }
+  .about-hero-text p {
+    font-size: 14px;
+    color: var(--text-light);
+    line-height: 1.5;
+  }
+  .about-section {
+    margin-bottom: 28px;
+  }
+  .about-section h3 {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--dark-green);
+    margin-bottom: 8px;
+  }
+  .about-section p {
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--text-mid);
+  }
+  .about-tech {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .about-tech-tag {
+    font-size: 12px;
+    font-weight: 500;
+    padding: 5px 12px;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    color: var(--text-mid);
+  }
+  .about-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-light);
+    cursor: pointer;
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: none;
+    background: none;
+    font-family: inherit;
+    transition: all 0.15s;
+    margin-bottom: 20px;
+  }
+  .about-back:hover { background: var(--white); color: var(--text-dark); }
+
   /* Responsive */
   @media (max-width: 640px) {
     nav { height: 56px; }
@@ -746,6 +847,8 @@
     .match-action { flex-direction: row; }
     .match-action .btn { flex: 1; }
     .commentary-header-inner { flex-direction: column; align-items: stretch; gap: 8px; }
+    .about-hero { flex-direction: column; text-align: center; gap: 16px; }
+    .about-photo { width: 100px; height: 100px; }
   }
 </style>
 </head>
@@ -756,9 +859,12 @@
     <h1 onclick="showBrowser()">sixthstump</h1>
     <span>AI Cricket Commentary</span>
   </div>
-  <div class="nav-status">
-    <div class="status-dot" id="statusDot"></div>
-    <span id="statusText">Ready</span>
+  <div class="nav-right">
+    <a class="nav-link" onclick="showAbout()">About</a>
+    <div class="nav-status">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">Ready</span>
+    </div>
   </div>
 </nav>
 
@@ -811,6 +917,51 @@
       <div class="empty-state" id="emptyState">
         <h3>Starting commentary...</h3>
         <p>Connecting to ESPNcricinfo and generating AI commentary</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- About View -->
+<div class="view" id="aboutView">
+  <div class="about-scroll">
+    <div class="about-inner">
+      <button class="about-back" onclick="showBrowser()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+        Back to matches
+      </button>
+
+      <div class="about-hero">
+        <img class="about-photo" src="/static/aryamaan.png" alt="Aryamaan Lakhotia" onerror="this.style.display='none'">
+        <div class="about-hero-text">
+          <h2>Aryamaan Lakhotia</h2>
+          <p>Former President, Harvard Cricket Club. Trader in New York. Cricket obsessive.</p>
+        </div>
+      </div>
+
+      <div class="about-section">
+        <h3>Why sixthstump?</h3>
+        <p>Cricket commentary is an art form. The way Harsha Bhogle builds a narrative, the way Nasser Hussain reads the game, the way Ian Bishop captures a moment - it turns a sport into a story. I wanted to see if AI could capture even a fraction of that magic.</p>
+        <p style="margin-top:10px">This started as a weekend experiment born from two things: a deep love for the game, and curiosity about where voice AI is headed. I wanted to explore how far text-to-speech has come, understand the APIs behind real-time sports data, and build something that actually feels like sitting down and watching cricket with great commentators.</p>
+      </div>
+
+      <div class="about-section">
+        <h3>The backstory</h3>
+        <p>I ran the Harvard Cricket Club in college - organizing matches, recruiting players, and doing whatever it took to keep cricket alive on a campus that didn't always know what a silly mid-on was. That love for the game never went away. Now I work as a trader in New York, but cricket is still the thing I'll stay up until 4am for.</p>
+        <p style="margin-top:10px">sixthstump is what happens when you combine that obsession with a fascination for what AI can do with voice, emotion, and real-time data.</p>
+      </div>
+
+      <div class="about-section">
+        <h3>How it works</h3>
+        <p>The app scrapes ball-by-ball commentary from ESPNcricinfo, feeds it through Claude to generate multi-voice commentary with emotion and context, then synthesizes speech using Cartesia's voice AI. Three distinct commentator voices - Harsha, Nasser, and Ian - take turns calling the action, offering analysis, and filling gaps between deliveries. All in real time.</p>
+        <div class="about-tech">
+          <span class="about-tech-tag">Python / FastAPI</span>
+          <span class="about-tech-tag">Claude API</span>
+          <span class="about-tech-tag">Cartesia TTS</span>
+          <span class="about-tech-tag">ESPNcricinfo</span>
+          <span class="about-tech-tag">WebSockets</span>
+          <span class="about-tech-tag">Web Audio API</span>
+        </div>
       </div>
     </div>
   </div>
@@ -963,15 +1114,26 @@ function renderMatches() {
 }
 
 // View switching
+function hideAllViews() {
+  document.getElementById('browserView').classList.remove('active');
+  document.getElementById('commentaryView').classList.remove('active');
+  document.getElementById('aboutView').classList.remove('active');
+}
+
 function showBrowser() {
   stopCommentary();
+  hideAllViews();
   document.getElementById('browserView').classList.add('active');
-  document.getElementById('commentaryView').classList.remove('active');
   setStatus('Ready', '');
 }
 
+function showAbout() {
+  hideAllViews();
+  document.getElementById('aboutView').classList.add('active');
+}
+
 function showCommentary(title, series, teams) {
-  document.getElementById('browserView').classList.remove('active');
+  hideAllViews();
   document.getElementById('commentaryView').classList.add('active');
   const titleEl = document.getElementById('commentaryTitle');
   if (teams && teams.length) {
