@@ -29,7 +29,8 @@
     font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
     background: var(--bg);
     color: var(--text-dark);
-    min-height: 100vh;
+    height: 100vh;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
   }
@@ -664,7 +665,7 @@
 <nav>
   <div class="nav-brand">
     <h1 onclick="showBrowser()">sixthstump</h1>
-    <span>AI Commentary</span>
+    <span>AI Cricket Commentary</span>
   </div>
   <div class="nav-status">
     <div class="status-dot" id="statusDot"></div>
@@ -869,13 +870,34 @@ function showCommentary(title, series, teams) {
     titleEl.textContent = title;
   }
   document.getElementById('commentarySeries').textContent = series;
-  document.getElementById('scoreboard').classList.remove('active');
-  document.getElementById('scoreboardInner').innerHTML = '';
   teamNames = {};
   teamIds = {};
   latestScore = '';
   currentOverBalls = [];
   lastOverNum = null;
+
+  // Show scoreboard immediately with team names/logos
+  const board = document.getElementById('scoreboard');
+  const inner = document.getElementById('scoreboardInner');
+  if (teams && teams.length >= 2) {
+    // Pre-populate teamNames and teamIds from match data
+    teams.forEach((t, i) => {
+      teamNames[i + 1] = t.abbreviation || t.name;
+      teamIds[i + 1] = t.id || '';
+    });
+    board.classList.add('active');
+    inner.innerHTML = teams.map((t, i) => `
+      ${i > 0 ? '<div class="scoreboard-sep"></div>' : ''}
+      <div class="scoreboard-innings">
+        <span class="scoreboard-team">${teamLogoImg(t.id, 18)} ${t.abbreviation || t.name}</span>
+        <span class="scoreboard-score">—</span>
+      </div>
+    `).join('');
+  } else {
+    board.classList.remove('active');
+    inner.innerHTML = '';
+  }
+
   document.getElementById('feed').innerHTML = `
     <div class="empty-state" id="emptyState">
       <h3>Starting commentary...</h3>
