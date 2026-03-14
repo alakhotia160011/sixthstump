@@ -1492,7 +1492,14 @@ function handleMessage(msg) {
       // Don't update scoreboard here - wait until entry is shown (in showPendingNow/playAudio)
       // so the top score stays in sync with what's visible in the feed
       if (msg.ballIndex !== undefined) ballsPlayed = msg.ballIndex;
-      pendingCommentary = { tag: msg.tag || 'ball', text: msg.text, emotion: msg.emotion, over: msg.over, ballData: msg.ballData, score: latestScore, speaker: msg.speaker, scorecard: msg.scorecard, overStats: msg.overStats };
+      // Build score from this message's own scorecard so it matches the ball, not the global scoreboard
+      let msgScore = latestScore;
+      if (msg.scorecard && msg.scorecard.length) {
+        const sc = msg.scorecard[msg.scorecard.length - 1];
+        const t = teamNames[sc.innings] || '';
+        msgScore = `${t} ${sc.runs}/${sc.wickets} (${sc.overs})`;
+      }
+      pendingCommentary = { tag: msg.tag || 'ball', text: msg.text, emotion: msg.emotion, over: msg.over, ballData: msg.ballData, score: msgScore, speaker: msg.speaker, scorecard: msg.scorecard, overStats: msg.overStats };
       // Safety: show text after 8s even if audio never arrives
       const sid = sessionId;
       pendingTimer = setTimeout(() => { if (sid === sessionId) showPendingNow(); }, 8000);
