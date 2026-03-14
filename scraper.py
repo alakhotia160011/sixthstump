@@ -555,6 +555,22 @@ class CricketScraper:
         """Return rich match context for the LLM — score, batsmen, bowler, run rate, etc."""
         lines = []
 
+        # Match format, series, teams
+        fmt = self._match.get("format", "")
+        series = self._match.get("series", {})
+        series_name = series.get("longName") or series.get("name") or ""
+        teams_data = self._match.get("teams", [])
+        team_names = [t.get("team", {}).get("longName", t.get("team", {}).get("name", "")) for t in teams_data]
+        info_parts = []
+        if fmt:
+            info_parts.append(f"Format: {fmt}")
+        if series_name:
+            info_parts.append(f"Series: {series_name}")
+        if team_names:
+            info_parts.append(f"Teams: {' vs '.join(team_names)}")
+        if info_parts:
+            lines.append(" | ".join(info_parts))
+
         # Match status
         status = self._match.get("statusText", "")
         if status:

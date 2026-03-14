@@ -316,7 +316,7 @@ Respond in the same format:
         parts = []
 
         if match_context:
-            parts.append(f"Match situation: {match_context}")
+            parts.append(f"Match situation:\n{match_context}")
 
         if over:
             parts.append(f"Over: {over}")
@@ -326,7 +326,7 @@ Respond in the same format:
         if self.recent_history:
             last_few = self.recent_history[-3:]
             parts.append(
-                "Your last few lines (vary your style, don't repeat patterns):\n"
+                "Your last few lines (continue the narrative naturally — connect to what you just said, don't restart fresh each ball):\n"
                 + "\n".join(f"- {line}" for line in last_few)
             )
 

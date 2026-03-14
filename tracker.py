@@ -82,6 +82,7 @@ class ReplayStatTracker:
     def __init__(self):
         self.innings: dict[int, InningsTracker] = {}
         self._current_innings = 1
+        self.match_info: str = ""  # format, series, teams — set once at start
 
     def set_innings(self, innings_number: int):
         self._current_innings = innings_number
@@ -219,6 +220,8 @@ class ReplayStatTracker:
     def get_match_context(self, innings_number: int | None = None) -> str:
         """Get accumulated match context string."""
         lines = []
+        if self.match_info:
+            lines.append(self.match_info)
         for inn_num in sorted(self.innings.keys()):
             inn = self.innings[inn_num]
             lines.append(f"Innings {inn_num}: {inn.total_runs}/{inn.total_wickets} ({inn.overs} ov, RR: {inn.run_rate})")

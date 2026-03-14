@@ -712,6 +712,7 @@
         <span id="commentarySeries"></span>
       </div>
       <button class="btn btn-stop" id="stopBtn" onclick="stopCommentary()" style="display:none">Stop</button>
+      <button class="btn btn-primary" id="resumeBtn" onclick="resumeCommentary()" style="display:none">Resume</button>
     </div>
   </div>
   <div class="scoreboard" id="scoreboard">
@@ -750,6 +751,11 @@ let currentFilter = 'all';
 let teamNames = {};
 let teamIds = {};
 let latestScore = '';
+let lastMatchUrl = '';
+let lastMatchMode = '';
+let lastMatchTitle = '';
+let lastMatchSeries = '';
+let lastMatchTeams = null;
 let currentOverBalls = [];  // track balls in current over for recap
 let lastOverNum = null;     // track when over changes
 let pendingCommentary = null; // holds text until audio arrives
@@ -923,6 +929,8 @@ function startMatchByIndex(idx, mode) {
 
 function stopAndGoBack() {
   stopCommentary();
+  lastMatchUrl = '';
+  document.getElementById('resumeBtn').style.display = 'none';
   showBrowser();
 }
 
@@ -1090,7 +1098,87 @@ function updateScoreboard(innings) {
   }).join('');
 }
 
+function handleMessage(msg) {
+  switch (msg.type) {
+    case 'commentary':
+      if (pendingCommentary) {
+        const pc = pendingCommentary;
+        addEntry(pc.tag, pc.text, pc.emotion, pc.over, pc.ballData, pc.score);
+      }
+      pendingCommentary = { tag: msg.tag || 'ball', text: msg.text, emotion: msg.emotion, over: msg.over, ballData: msg.ballData, score: latestScore };
+      break;
+    case 'audio':
+      playAudio(msg.data);
+      break;
+    case 'teams':
+      teamNames = msg.teams || {};
+      teamIds = msg.teamIds || {};
+      break;
+    case 'scorecard':
+      updateScoreboard(msg.innings || []);
+      break;
+    case 'status':
+      addEntry('status', msg.text);
+      setStatus(msg.text, 'running');
+      break;
+    case 'error':
+      addEntry('error', msg.text);
+      break;
+    case 'ping':
+      break;
+    case 'done':
+      if (pendingCommentary) {
+        const pc = pendingCommentary;
+        pendingCommentary = null;
+        addEntry(pc.tag, pc.text, pc.emotion, pc.over, pc.ballData, pc.score);
+      }
+      setStatus('Commentary complete', 'connected');
+      document.getElementById('stopBtn').style.display = 'none';
+      break;
+  }
+}
+
+function resumeCommentary() {
+  if (!lastMatchUrl) return;
+  document.getElementById('resumeBtn').style.display = 'none';
+  // Don't clear the feed — keep existing commentary
+  if (!audioCtx) {
+    audioCtx = new AudioContext({ sampleRate: SAMPLE_RATE });
+  }
+  nextPlayTime = 0;
+  document.getElementById('stopBtn').style.display = '';
+  setStatus('Reconnecting...', 'connected');
+
+  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${protocol}//${location.host}/ws`);
+  ws.onopen = () => {
+    setStatus('Commentary resumed', 'running');
+    ws.send(JSON.stringify({ action: 'start', url: lastMatchUrl, mode: lastMatchMode }));
+  };
+  ws.onmessage = (event) => {
+    const msg = JSON.parse(event.data);
+    handleMessage(msg);
+  };
+  ws.onclose = () => {
+    setStatus('Disconnected', '');
+    document.getElementById('stopBtn').style.display = 'none';
+    if (lastMatchUrl) document.getElementById('resumeBtn').style.display = '';
+  };
+  ws.onerror = () => {
+    setStatus('Connection error', '');
+    addEntry('error', 'WebSocket connection failed.');
+    document.getElementById('stopBtn').style.display = 'none';
+    if (lastMatchUrl) document.getElementById('resumeBtn').style.display = '';
+  };
+}
+
 function startMatch(url, mode, title, series, teams) {
+  lastMatchUrl = url;
+  lastMatchMode = mode;
+  lastMatchTitle = title;
+  lastMatchSeries = series;
+  lastMatchTeams = teams;
+
   showCommentary(title, series, teams);
 
   if (!audioCtx) {
@@ -1099,6 +1187,7 @@ function startMatch(url, mode, title, series, teams) {
   nextPlayTime = 0;
 
   document.getElementById('stopBtn').style.display = '';
+  document.getElementById('resumeBtn').style.display = 'none';
   setStatus('Connecting...', 'connected');
 
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -1111,56 +1200,20 @@ function startMatch(url, mode, title, series, teams) {
 
   ws.onmessage = (event) => {
     const msg = JSON.parse(event.data);
-    switch (msg.type) {
-      case 'commentary':
-        // Hold text — it will be shown when the matching audio arrives
-        // If there was a previous pending with no audio, flush it now
-        if (pendingCommentary) {
-          const pc = pendingCommentary;
-          addEntry(pc.tag, pc.text, pc.emotion, pc.over, pc.ballData, pc.score);
-        }
-        // Capture latestScore NOW so it stays correct when displayed later
-        pendingCommentary = { tag: msg.tag || 'ball', text: msg.text, emotion: msg.emotion, over: msg.over, ballData: msg.ballData, score: latestScore };
-        break;
-      case 'audio':
-        playAudio(msg.data);
-        break;
-      case 'teams':
-        teamNames = msg.teams || {};
-        teamIds = msg.teamIds || {};
-        break;
-      case 'scorecard':
-        updateScoreboard(msg.innings || []);
-        break;
-      case 'status':
-        addEntry('status', msg.text);
-        setStatus(msg.text, 'running');
-        break;
-      case 'error':
-        addEntry('error', msg.text);
-        break;
-      case 'done':
-        // Flush any remaining pending commentary
-        if (pendingCommentary) {
-          const pc = pendingCommentary;
-          pendingCommentary = null;
-          addEntry(pc.tag, pc.text, pc.emotion, pc.over, pc.ballData, pc.score);
-        }
-        setStatus('Commentary complete', 'connected');
-        document.getElementById('stopBtn').style.display = 'none';
-        break;
-    }
+    handleMessage(msg);
   };
 
   ws.onclose = () => {
     setStatus('Disconnected', '');
     document.getElementById('stopBtn').style.display = 'none';
+    if (lastMatchUrl) document.getElementById('resumeBtn').style.display = '';
   };
 
   ws.onerror = () => {
     setStatus('Connection error', '');
     addEntry('error', 'WebSocket connection failed. Is the server running?');
     document.getElementById('stopBtn').style.display = 'none';
+    if (lastMatchUrl) document.getElementById('resumeBtn').style.display = '';
   };
 }
 
@@ -1190,6 +1243,7 @@ function stopCommentary() {
   }
   setStatus('Stopped', '');
   document.getElementById('stopBtn').style.display = 'none';
+  if (lastMatchUrl) document.getElementById('resumeBtn').style.display = '';
 }
 
 // Load matches on page load

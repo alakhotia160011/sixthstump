@@ -107,6 +107,21 @@ async def run_replay(ws: WebSocket, scraper: CricketScraper, enhancer: Commentar
     match_intro = await scraper.get_match_intro()
     tracker = ReplayStatTracker()
 
+    # Set match info so every ball-by-ball context includes format, series, teams
+    m = scraper._match or {}
+    fmt = m.get("format", "")
+    series_name = m.get("series", {}).get("longName") or m.get("series", {}).get("name") or ""
+    teams_data = m.get("teams", [])
+    team_names = [t.get("team", {}).get("longName", t.get("team", {}).get("name", "")) for t in teams_data]
+    info_parts = []
+    if fmt:
+        info_parts.append(f"Format: {fmt}")
+    if series_name:
+        info_parts.append(f"Series: {series_name}")
+    if team_names:
+        info_parts.append(f"Teams: {' vs '.join(team_names)}")
+    tracker.match_info = " | ".join(info_parts)
+
     await send_msg(ws, {"type": "status", "text": f"Replay mode — {len(entries)} balls"})
 
     # Send team info for the scoreboard
