@@ -86,6 +86,7 @@ def create_sync_worker(ws: WebSocket, tts: CommentaryTTS, stop_event: asyncio.Ev
                     tts.synthesize, tts_text, tts_emotion,
                     voice_id=voice_cfg["voice_id"],
                     language=voice_cfg["language"],
+                    speaker=speaker,
                 )
                 audio_b64 = base64.b64encode(pcm).decode("ascii")
             except Exception:
@@ -111,10 +112,11 @@ async def _queue_segments(sync_queue: asyncio.Queue, segments, tag: str, **extra
             continue
         msg = {"type": "commentary", "tag": tag, "text": seg.text,
                "emotion": seg.emotion, "speaker": seg.speaker, **extra_fields}
-        # Only first segment of a ball gets ballData and scorecard
+        # Only first segment of a ball gets ballData, scorecard, overStats
         if i > 0:
             msg.pop("ballData", None)
             msg.pop("scorecard", None)
+            msg.pop("overStats", None)
         await sync_queue.put((msg, seg.text, seg.emotion, seg.speaker))
 
 
@@ -131,6 +133,44 @@ def _build_scorecard(tracker: ReplayStatTracker) -> list[dict]:
             "runRate": inn.run_rate,
         })
     return result
+
+
+def _build_over_stats(tracker: ReplayStatTracker, innings_number: int) -> dict:
+    """Build detailed stats snapshot for the over recap card."""
+    inn = tracker.innings.get(innings_number)
+    if not inn:
+        return {}
+
+    batsmen = []
+    for b in inn.batsmen.values():
+        if b.balls > 0 and not b.is_out:
+            batsmen.append({
+                "name": b.name, "runs": b.runs, "balls": b.balls,
+                "fours": b.fours, "sixes": b.sixes, "sr": b.strike_rate,
+            })
+    # Also include recently dismissed (last 2 wickets)
+    dismissed = [b for b in inn.batsmen.values() if b.is_out and b.balls > 0]
+    for b in dismissed[-2:]:
+        batsmen.append({
+            "name": b.name, "runs": b.runs, "balls": b.balls,
+            "fours": b.fours, "sixes": b.sixes, "sr": b.strike_rate, "out": True,
+        })
+
+    bowlers = []
+    for bw in inn.bowlers.values():
+        if bw.balls > 0:
+            bowlers.append({
+                "name": bw.name, "overs": bw.overs, "runs": bw.runs_conceded,
+                "wickets": bw.wickets, "econ": bw.economy, "dots": bw.dots,
+            })
+
+    return {
+        "score": f"{inn.total_runs}/{inn.total_wickets}",
+        "overs": inn.overs,
+        "runRate": inn.run_rate,
+        "batsmen": batsmen,
+        "bowlers": bowlers,
+    }
 
 
 async def run_replay(ws: WebSocket, scraper: CricketScraper, enhancer: CommentaryEnhancer,
@@ -209,17 +249,18 @@ async def run_replay(ws: WebSocket, scraper: CricketScraper, enhancer: Commentar
 
                 elif prev_int != cur_int:
                     display_over = prev_int + 1
+                    over_stats = _build_over_stats(tracker, current_innings)
                     if prev_int in enhancer.MILESTONE_OVERS and prev_int not in summaries_done:
                         summaries_done.add(prev_int)
                         player_stats = tracker.get_player_stats(current_innings)
                         tracker_context = tracker.get_match_context()
                         summary_segments = await enhancer.generate_over_summary(display_over, tracker_context, recent_balls, player_stats)
-                        await _queue_segments(sync_queue, summary_segments, "summary", over=f"Over {display_over}")
+                        await _queue_segments(sync_queue, summary_segments, "summary", over=f"Over {display_over}", overStats=over_stats)
                     else:
                         current_stats = tracker.get_current_player_stats(entry.text, current_innings)
                         tracker_context = tracker.get_match_context()
                         score_segments = await enhancer.generate_score_update(display_over, tracker_context, current_stats)
-                        await _queue_segments(sync_queue, score_segments, "score", over=f"Over {display_over}")
+                        await _queue_segments(sync_queue, score_segments, "score", over=f"Over {display_over}", overStats=over_stats)
             except ValueError as e:
                 logger.warning("Could not parse over number: %s", e)
 
@@ -279,6 +320,47 @@ def _build_live_scorecard(scraper: CricketScraper) -> list[dict]:
             "runRate": inn.get("runRate", 0),
         })
     return result
+
+
+def _build_live_over_stats(scraper: CricketScraper) -> dict:
+    """Build detailed stats snapshot from the scraper's live data."""
+    current = None
+    for inn in scraper._innings:
+        if inn.get("isCurrent"):
+            current = inn
+            break
+    if not current and scraper._innings:
+        current = scraper._innings[-1]
+    if not current:
+        return {}
+
+    batsmen = []
+    for b in current.get("inningBatsmen", []):
+        if b.get("battedType") == "yes" and not b.get("isOut"):
+            p = b.get("player", {})
+            batsmen.append({
+                "name": p.get("longName", "?"), "runs": b.get("runs", 0),
+                "balls": b.get("balls", 0), "fours": b.get("fours", 0),
+                "sixes": b.get("sixes", 0), "sr": b.get("strikerate", 0),
+            })
+
+    bowlers = []
+    for bw in current.get("inningBowlers", []):
+        if bw.get("bowledType") == "yes":
+            p = bw.get("player", {})
+            bowlers.append({
+                "name": p.get("longName", "?"), "overs": str(bw.get("overs", "0")),
+                "runs": bw.get("conceded", 0), "wickets": bw.get("wickets", 0),
+                "econ": bw.get("economy", 0), "dots": bw.get("dots", 0),
+            })
+
+    return {
+        "score": f"{current.get('runs', 0)}/{current.get('wickets', 0)}",
+        "overs": str(current.get("overs", "0")),
+        "runRate": current.get("runRate", 0),
+        "batsmen": batsmen,
+        "bowlers": bowlers,
+    }
 
 
 async def run_live(ws: WebSocket, scraper: CricketScraper, enhancer: CommentaryEnhancer,
@@ -343,11 +425,18 @@ async def run_live(ws: WebSocket, scraper: CricketScraper, enhancer: CommentaryE
                         try:
                             prev_int = int(prev_over_num)
                             cur_int = int(cur_over_num)
-                            if prev_int != cur_int and prev_int in enhancer.MILESTONE_OVERS and prev_int not in summaries_done:
-                                summaries_done.add(prev_int)
-                                player_stats = scraper.get_player_stats()
-                                summary_segments = await enhancer.generate_over_summary(prev_int, match_context, recent_balls, player_stats)
-                                await _queue_segments(sync_queue, summary_segments, "summary")
+                            if prev_int != cur_int:
+                                display_over = prev_int + 1
+                                over_stats = _build_live_over_stats(scraper)
+                                if prev_int in enhancer.MILESTONE_OVERS and prev_int not in summaries_done:
+                                    summaries_done.add(prev_int)
+                                    player_stats = scraper.get_player_stats()
+                                    summary_segments = await enhancer.generate_over_summary(display_over, match_context, recent_balls, player_stats)
+                                    await _queue_segments(sync_queue, summary_segments, "summary", over=f"Over {display_over}", overStats=over_stats)
+                                else:
+                                    current_stats = scraper.get_current_player_stats(entry.text)
+                                    score_segments = await enhancer.generate_score_update(display_over, match_context, current_stats)
+                                    await _queue_segments(sync_queue, score_segments, "score", over=f"Over {display_over}", overStats=over_stats)
                         except ValueError as e:
                             logger.warning("Could not parse over number: %s", e)
                     prev_over = entry.over

@@ -623,6 +623,68 @@
     white-space: nowrap;
   }
 
+  /* Over stats card */
+  .over-stats {
+    background: #F7F5F1;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-top: 10px;
+    font-size: 13px;
+  }
+  .over-stats-header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+  .over-stats-score {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-dark);
+  }
+  .over-stats-meta {
+    font-size: 12px;
+    color: var(--text-light);
+  }
+  .over-stats table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 8px;
+  }
+  .over-stats table:last-child { margin-bottom: 0; }
+  .over-stats th {
+    text-align: left;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-light);
+    padding: 3px 8px 3px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .over-stats th:not(:first-child) { text-align: right; }
+  .over-stats td {
+    padding: 4px 8px 4px 0;
+    color: var(--text-mid);
+  }
+  .over-stats td:not(:first-child) { text-align: right; }
+  .over-stats td:first-child {
+    font-weight: 500;
+    color: var(--text-dark);
+  }
+  .over-stats .out-name {
+    color: var(--text-light);
+    text-decoration: line-through;
+  }
+  .over-stats-section-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-light);
+    margin-bottom: 4px;
+  }
+
   .entry-text {
     font-size: 15px;
     line-height: 1.6;
@@ -1006,7 +1068,42 @@ function renderOverRecap(overNum, balls) {
   feed.appendChild(div);
 }
 
-function addEntry(tag, text, emotion, over, ballData, score, speaker) {
+function renderOverStatsCard(stats) {
+  if (!stats || (!stats.batsmen?.length && !stats.bowlers?.length)) return '';
+  let html = '<div class="over-stats">';
+  html += '<div class="over-stats-header">';
+  if (stats.score) html += `<span class="over-stats-score">${esc(stats.score)}</span>`;
+  const meta = [];
+  if (stats.overs) meta.push(`${esc(stats.overs)} ov`);
+  if (stats.runRate) meta.push(`RR ${esc(stats.runRate)}`);
+  if (meta.length) html += `<span class="over-stats-meta">${meta.join(' | ')}</span>`;
+  html += '</div>';
+
+  if (stats.batsmen && stats.batsmen.length) {
+    html += '<div class="over-stats-section-label">Batting</div>';
+    html += '<table><tr><th>Batter</th><th>R</th><th>B</th><th>4s</th><th>6s</th><th>SR</th></tr>';
+    for (const b of stats.batsmen) {
+      const nameClass = b.out ? 'out-name' : '';
+      const outTag = b.out ? ' *' : '';
+      html += `<tr><td class="${nameClass}">${esc(b.name)}${outTag}</td><td>${esc(b.runs)}</td><td>${esc(b.balls)}</td><td>${esc(b.fours)}</td><td>${esc(b.sixes)}</td><td>${esc(b.sr)}</td></tr>`;
+    }
+    html += '</table>';
+  }
+
+  if (stats.bowlers && stats.bowlers.length) {
+    html += '<div class="over-stats-section-label">Bowling</div>';
+    html += '<table><tr><th>Bowler</th><th>O</th><th>R</th><th>W</th><th>Econ</th><th>Dots</th></tr>';
+    for (const bw of stats.bowlers) {
+      html += `<tr><td>${esc(bw.name)}</td><td>${esc(bw.overs)}</td><td>${esc(bw.runs)}</td><td>${esc(bw.wickets)}</td><td>${esc(bw.econ)}</td><td>${esc(bw.dots)}</td></tr>`;
+    }
+    html += '</table>';
+  }
+
+  html += '</div>';
+  return html;
+}
+
+function addEntry(tag, text, emotion, over, ballData, score, speaker, overStats) {
   const empty = document.getElementById('emptyState');
   if (empty) empty.remove();
 
@@ -1058,7 +1155,8 @@ function addEntry(tag, text, emotion, over, ballData, score, speaker) {
         ${emotion ? `<span class="entry-emotion">${esc(emotion)}</span>` : ''}
       </div>`;
     }
-    div.innerHTML = `${header}<div class="entry-text">${esc(text)}</div>`;
+    const statsHtml = overStats ? renderOverStatsCard(overStats) : '';
+    div.innerHTML = `${header}<div class="entry-text">${esc(text)}</div>${statsHtml}`;
   }
 
   feed.appendChild(div);
@@ -1102,7 +1200,7 @@ function playAudio(base64Data) {
     const showEntry = () => {
       if (sid !== sessionId) return;
       if (pc.scorecard) updateScoreboard(pc.scorecard);
-      addEntry(pc.tag, pc.text, pc.emotion, pc.over, pc.ballData, pc.score, pc.speaker);
+      addEntry(pc.tag, pc.text, pc.emotion, pc.over, pc.ballData, pc.score, pc.speaker, pc.overStats);
     };
     if (delay <= 0) {
       showEntry();
@@ -1154,7 +1252,7 @@ function showPendingNow() {
   const pc = pendingCommentary;
   pendingCommentary = null;
   if (pc.scorecard) updateScoreboard(pc.scorecard);
-  addEntry(pc.tag, pc.text, pc.emotion, pc.over, pc.ballData, pc.score, pc.speaker);
+  addEntry(pc.tag, pc.text, pc.emotion, pc.over, pc.ballData, pc.score, pc.speaker, pc.overStats);
 }
 
 let pendingTimer = null;
@@ -1167,7 +1265,7 @@ function handleMessage(msg) {
       if (pendingCommentary) showPendingNow();
       // Update scoreboard if embedded in this message
       if (msg.scorecard) updateScoreboard(msg.scorecard);
-      pendingCommentary = { tag: msg.tag || 'ball', text: msg.text, emotion: msg.emotion, over: msg.over, ballData: msg.ballData, score: latestScore, speaker: msg.speaker, scorecard: msg.scorecard };
+      pendingCommentary = { tag: msg.tag || 'ball', text: msg.text, emotion: msg.emotion, over: msg.over, ballData: msg.ballData, score: latestScore, speaker: msg.speaker, scorecard: msg.scorecard, overStats: msg.overStats };
       // Safety: show text after 8s even if audio never arrives
       const sid = sessionId;
       pendingTimer = setTimeout(() => { if (sid === sessionId) showPendingNow(); }, 8000);

@@ -16,8 +16,16 @@ class CommentaryTTS:
             "sample_rate": self.sample_rate,
         }
 
+    # Per-speaker speed multiplier (applied on top of emotion speed)
+    SPEAKER_SPEED = {
+        "harsha": 1.15,  # Harsha's cloned voice tends to speak slowly
+        "nasser": 1.0,
+        "ian": 1.0,
+    }
+
     def synthesize(self, text: str, emotion: str = "neutral",
-                   voice_id: Optional[str] = None, language: Optional[str] = None) -> bytes:
+                   voice_id: Optional[str] = None, language: Optional[str] = None,
+                   speaker: Optional[str] = None) -> bytes:
         """Convert text to raw PCM audio bytes (float32, 44100 Hz, mono)."""
         # Ensure text ends with punctuation to prevent TTS repeating the last word
         clean = text.strip()
@@ -35,6 +43,11 @@ class CommentaryTTS:
         # Add emotion, speed, and volume controls for sonic-3
         gen_config = self.EMOTION_PROFILES.get(emotion, {})
         if gen_config:
+            gen_config = dict(gen_config)  # copy so we don't mutate the class dict
+            # Apply per-speaker speed adjustment
+            speed_mult = self.SPEAKER_SPEED.get(speaker or "", 1.0)
+            if speed_mult != 1.0 and "speed" in gen_config:
+                gen_config["speed"] = round(gen_config["speed"] * speed_mult, 2)
             kwargs["generation_config"] = gen_config
 
         output = self.client.tts.bytes(**kwargs)

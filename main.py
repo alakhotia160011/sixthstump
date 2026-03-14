@@ -50,7 +50,7 @@ async def run(match_url: str, replay: bool = False):
                 try:
                     vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["harsha"])
                     pcm_audio = tts.synthesize(seg.text, emotion=seg.emotion,
-                                               voice_id=vcfg["voice_id"], language=vcfg["language"])
+                                               voice_id=vcfg["voice_id"], language=vcfg["language"], speaker=seg.speaker)
                     player.play_with_pause(pcm_audio, pause_after=1.5)
                 except Exception as e:
                     print(f"[tts] intro error: {e}")
@@ -87,7 +87,7 @@ async def run(match_url: str, replay: bool = False):
                             try:
                                 vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["harsha"])
                                 pcm_audio = tts.synthesize(seg.text, emotion=seg.emotion,
-                                                           voice_id=vcfg["voice_id"], language=vcfg["language"])
+                                                           voice_id=vcfg["voice_id"], language=vcfg["language"], speaker=seg.speaker)
                                 player.play_with_pause(pcm_audio, pause_after=2.0)
                             except Exception as e:
                                 print(f"[tts] break error: {e}")
@@ -116,7 +116,7 @@ async def run(match_url: str, replay: bool = False):
                                 try:
                                     vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["harsha"])
                                     pcm_audio = tts.synthesize(seg.text, emotion=seg.emotion,
-                                                               voice_id=vcfg["voice_id"], language=vcfg["language"])
+                                                               voice_id=vcfg["voice_id"], language=vcfg["language"], speaker=seg.speaker)
                                     player.play_with_pause(pcm_audio, pause_after=1.2)
                                 except Exception as e:
                                     print(f"[tts] summary error: {e}")
@@ -133,7 +133,7 @@ async def run(match_url: str, replay: bool = False):
                                 try:
                                     vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["harsha"])
                                     pcm_audio = tts.synthesize(seg.text, emotion=seg.emotion,
-                                                               voice_id=vcfg["voice_id"], language=vcfg["language"])
+                                                               voice_id=vcfg["voice_id"], language=vcfg["language"], speaker=seg.speaker)
                                     player.play_with_pause(pcm_audio, pause_after=1.0)
                                 except Exception as e:
                                     print(f"[tts] score error: {e}")
@@ -158,7 +158,7 @@ async def run(match_url: str, replay: bool = False):
                 try:
                     vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["harsha"])
                     pcm_audio = tts.synthesize(seg.text, emotion=seg.emotion,
-                                               voice_id=vcfg["voice_id"], language=vcfg["language"])
+                                               voice_id=vcfg["voice_id"], language=vcfg["language"], speaker=seg.speaker)
                     player.play_with_pause(pcm_audio, pause_after=0.8)
                 except Exception as e:
                     print(f"[tts] error: {e}")
@@ -179,7 +179,7 @@ async def run(match_url: str, replay: bool = False):
                     try:
                         vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["harsha"])
                         pcm_audio = tts.synthesize(seg.text, emotion=seg.emotion,
-                                                   voice_id=vcfg["voice_id"], language=vcfg["language"])
+                                                   voice_id=vcfg["voice_id"], language=vcfg["language"], speaker=seg.speaker)
                         player.play_with_pause(pcm_audio, pause_after=0.6)
                     except Exception as e:
                         print(f"[tts] filler error: {e}")
@@ -205,7 +205,7 @@ async def run(match_url: str, replay: bool = False):
                 try:
                     vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["harsha"])
                     pcm_audio = tts.synthesize(seg.text, emotion=seg.emotion,
-                                               voice_id=vcfg["voice_id"], language=vcfg["language"])
+                                               voice_id=vcfg["voice_id"], language=vcfg["language"], speaker=seg.speaker)
                     player.play_with_pause(pcm_audio, pause_after=1.5)
                 except Exception as e:
                     print(f"[tts] intro error: {e}")
@@ -252,7 +252,7 @@ async def run(match_url: str, replay: bool = False):
                                         try:
                                             vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["harsha"])
                                             pcm_audio = tts.synthesize(seg.text, emotion=seg.emotion,
-                                                                       voice_id=vcfg["voice_id"], language=vcfg["language"])
+                                                                       voice_id=vcfg["voice_id"], language=vcfg["language"], speaker=seg.speaker)
                                             player.play_with_pause(pcm_audio, pause_after=1.2)
                                         except Exception as e:
                                             print(f"[tts] summary error: {e}")
@@ -272,7 +272,7 @@ async def run(match_url: str, replay: bool = False):
                             try:
                                 vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["harsha"])
                                 pcm_audio = tts.synthesize(seg.text, emotion=seg.emotion,
-                                                           voice_id=vcfg["voice_id"], language=vcfg["language"])
+                                                           voice_id=vcfg["voice_id"], language=vcfg["language"], speaker=seg.speaker)
                                 player.play_with_pause(pcm_audio, pause_after=0.8)
                             except Exception as e:
                                 print(f"[tts] error: {e}")
@@ -297,7 +297,7 @@ async def run(match_url: str, replay: bool = False):
                             try:
                                 vcfg = VOICE_CONFIG.get(seg.speaker, VOICE_CONFIG["harsha"])
                                 pcm_audio = tts.synthesize(seg.text, emotion=seg.emotion,
-                                                           voice_id=vcfg["voice_id"], language=vcfg["language"])
+                                                           voice_id=vcfg["voice_id"], language=vcfg["language"], speaker=seg.speaker)
                                 player.play_with_pause(pcm_audio, pause_after=0.6)
                             except Exception as e:
                                 print(f"[tts] filler error: {e}")
