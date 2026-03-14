@@ -18,7 +18,7 @@ class CommentaryTTS:
 
     # Per-speaker speed multiplier (applied on top of emotion speed)
     SPEAKER_SPEED = {
-        "harsha": 1.15,  # Harsha's cloned voice tends to speak slowly
+        "harsha": 1.05,  # Slight bump, cloned voice is naturally slow
         "nasser": 1.0,
         "ian": 1.0,
     }

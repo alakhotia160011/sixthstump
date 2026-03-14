@@ -460,6 +460,7 @@
     to { opacity: 1; transform: translateY(0); }
   }
   .entry.ball    { border-left-color: var(--bright-green); }
+  .entry.ball-cont { border-left-color: var(--bright-green); margin-top: -8px; padding-top: 8px; border-top: none; }
   .entry.intro   { border-left-color: var(--tan); background: linear-gradient(135deg, var(--card-bg) 0%, #FDF8F0 100%); }
   .entry.summary { border-left-color: var(--dark-green); background: linear-gradient(135deg, var(--card-bg) 0%, #F0F8F3 100%); }
   .entry.score   { border-left-color: var(--mid-green); }
@@ -468,11 +469,10 @@
   .entry.status  { border-left-color: var(--border); background: var(--bg); }
   .entry.error   { border-left-color: #D64545; background: #FDF5F5; }
 
-  /* Speaker-specific styling */
-  .entry.speaker-nasser { border-left-color: #5B7BB5; }
-  .entry.speaker-nasser.filler { border-left-color: #8BA3CF; }
-  .entry.speaker-ian { border-left-color: #2E8B57; }
-  .entry.speaker-ian.filler { border-left-color: #5CAD7E; }
+  /* Speaker-specific border colors (override tag colors) */
+  .entry.speaker-harsha { border-left-color: #B8862D !important; }
+  .entry.speaker-nasser { border-left-color: #5B7BB5 !important; }
+  .entry.speaker-ian    { border-left-color: #2E8B57 !important; }
   .speaker-badge {
     font-size: 10px;
     font-weight: 600;
@@ -1363,6 +1363,15 @@ function addEntry(tag, text, emotion, over, ballData, score, speaker, overStats)
         </div>
         <div class="entry-text">${esc(text)}</div>
       </div>`;
+  } else if (tag === 'ball' && !ballData) {
+    // Continuation segment of a multi-speaker ball commentary (no ballData)
+    div.className = `entry ball-cont${spk ? ` speaker-${spk}` : ''}`;
+    div.innerHTML = `
+      <div class="entry-header">
+        ${speakerBadge}
+        ${emotion ? `<span class="entry-emotion">${esc(emotion)}</span>` : ''}
+      </div>
+      <div class="entry-text">${esc(text)}</div>`;
   } else {
     let header = '';
     if (tag !== 'status' && tag !== 'error') {
