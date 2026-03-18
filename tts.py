@@ -79,5 +79,10 @@ class CommentaryTTS:
         "playful":       {"emotion": "flirtatious:highest",   "speed": 1.0,  "volume": 1.6},
         "frustrated":    {"emotion": "frustrated:highest",    "speed": 0.95, "volume": 1.6},
         "sympathetic":   {"emotion": "sympathetic:highest",   "speed": 0.85, "volume": 1.2},
+        "laughing":      {"emotion": "happy:highest",         "speed": 1.05, "volume": 1.8},
+        "groaning":      {"emotion": "disappointed:highest",  "speed": 0.85, "volume": 1.6},
+        "breathless":    {"emotion": "excited:highest",       "speed": 1.15, "volume": 1.9},
+        "incredulous":   {"emotion": "surprised:highest",     "speed": 1.0,  "volume": 1.8},
+        "cheeky":        {"emotion": "flirtatious:highest",   "speed": 1.0,  "volume": 1.5},
     }
 

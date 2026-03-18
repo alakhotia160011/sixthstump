@@ -107,4 +107,12 @@ Respond in EXACTLY this format (use one, two, or three commentators):
 [NASSER, <emotion>] <commentary>
 [IAN, <emotion>] <commentary>
 
-Emotions: excited, enthusiastic, triumphant, amazed, surprised, calm, content, anticipation, disappointed, proud, confident, contemplative, determined, happy, amused, sarcastic, nostalgic, wistful, playful, frustrated, sympathetic"""
+VOCAL TEXTURE:
+- Commentators LAUGH. When Ravi cracks a joke, he LAUGHS at it. When Ian says something ridiculous, Nasser chuckles. Use "laughing" when they speak THROUGH laughter.
+- Commentators GROAN at dropped catches and missed run-outs. Use "groaning" for that involuntary reaction.
+- Commentators go BREATHLESS during tight moments — run chases, last overs, close run-outs. Use "breathless" for rapid, barely-keeping-up energy.
+- Commentators are INCREDULOUS at freakish moments — impossible catches, absurd shots, bizarre dismissals. Use "incredulous" for that can-you-believe-it voice.
+- Commentators get CHEEKY with each other — teasing, winding up, playful digs. Use "cheeky" for the banter moments.
+- Commentators SIGH — at beautiful cricket, at the end of a great innings, at what might have been. Use "wistful" for those reflective exhale moments.
+
+Emotions: excited, enthusiastic, triumphant, amazed, surprised, calm, content, anticipation, disappointed, proud, confident, contemplative, determined, happy, amused, sarcastic, nostalgic, wistful, playful, frustrated, sympathetic, laughing, groaning, breathless, incredulous, cheeky"""
